@@ -1,0 +1,28 @@
+\section{Proposed Target Implementation Platform}
+\label{sec:platform}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm}X}
+\toprule
+Component & Specification \\
+\midrule
+Parallel paradigms & SIMD: AVX2 (256-bit \texttt{ymm} registers) in hand-written x86-64 assembly (NASM) for the inner loop, called from C++; the team already has x86 and \texttt{xmm}/\texttt{ymm} experience. A C++ intrinsics version of the same loop is kept as a cross-check. SIMT: CUDA C++. \\
+GPU & NVIDIA GeForce GTX 1660: Turing (TU116), compute capability 7.5, 1{,}408 CUDA cores, 6 GB GDDR5 on a 192-bit bus, 192 GB/s \cite{gtx1660_specs}. GeForce cards are slow at 64-bit floating point, so all GPU code uses 32-bit integers (deterministic mode) or 32-bit floats. \\
+CPU (baselines) & Processor	AMD Ryzen 5 3500 6-Core Processor, 3600 Mhz, 6 Core(s), 6 Logical Processor(s); Cache: L1 cache: 384KB, L2 cache: 3.0 MB, L3: 16.0 MB; RAM: 16GB. Must support AVX2 and FMA; AVX-512 is not assumed. Same machine as the GPU. \\
+OS & Linux (Ubuntu 22.04/24.04). Windows with WSL2 is acceptable for the C++/CUDA core; CUDA-Q is distributed for Linux, so QAOA runs either natively on Linux or under WSL2. WSL has GPU Visibility of CUDA-Q in the specified machine. \\
+Toolchain & CUDA Toolkit 12.x (driver $\ge$ 525.60.13), GCC/Clang with C++17, NASM, CMake; the Philox random-number generator \cite{salmon2011parallel} written once in a header that both CPU and GPU code include. \\
+Quantum stack & CUDA-Q (Python, CUDA~12 build) with the \texttt{nvidia} target, which simulates on a single GPU through cuQuantum's cuStateVec \cite{cudaq_docs,bayraktar2023cuquantum}. cuStateVec documents support for compute capability $\ge 7.0$, which includes Turing \cite{cuquantum_docs}. If installation fails: CUDA-Q's CPU simulator for small $n$, or cuQuantum's Python interface directly. \\
+Analysis & Python 3.11+ (NumPy, SciPy, pandas, NetworkX for small reference checks, matplotlib). \\
+Profiling & Nsight Systems and Nsight Compute (GPU); \texttt{perf} and Intel/AMD hardware counters where available (CPU). \\
+Repository & GitHub: source, build and benchmark scripts, frozen data manifests (not the licensed raw data), the parallel-algorithm discussion, and the sequential-vs-parallel timing results required for Milestone 3. \\
+\bottomrule
+\end{tabularx}
+\caption{Target platform.}
+\label{tab:platform}
+\end{table}
+
+
+The GTX 1660 is a mid-range gaming card. That is enough for every classical part of this project, because the problems are small in memory (a 2{,}000-drug penalty table is 16 MB). It is the limiting factor for the quantum simulation: simulating $n$ qubits needs $2^n$ complex numbers, so each extra qubit doubles the memory, and 6 GB runs out at roughly $\approx$ 28 qubits.
+

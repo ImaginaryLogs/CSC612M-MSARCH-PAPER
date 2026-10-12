@@ -1,0 +1,37 @@
+\section{Mid-Project Milestones}
+\label{sec:milestones}
+
+\paragraph{Milestone 2 (Week 10) deliverable.} A live demo on the curated AD drugs that shows:
+\begin{enumerate}
+\item the checked scoring function: on a 16-drug instance, an exhaustive Python check over all $2^{16}$ yes/no patterns confirms that the QUBO's best pattern is a valid $k$-drug combination and equals the exact-search answer;
+\item CPU and GPU exact search returning the same best combination and the same tie count;
+\item SA in scalar C++, AVX2 assembly and CUDA (v1) making identical decisions for a fixed seed;
+\item a first sequential-vs-parallel timing table for exact search and SA;
+\item the first best AD combinations for $k\in\{2,3\}$ at two values of $\lambda$.
+\end{enumerate}
+
+\paragraph{Schedule.} \Cref{tab:schedule} splits the work by member (roles in \Cref{tab:roles}). Week 7 includes a deliberate CUDA ramp-up for Member 2 (and Member 3, who reviews the CUDA code).
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{0.95cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
+\toprule
+Week & Member 1 (lead) & Member 2 (CUDA) & Member 3 (AVX2, benchmarks) \\
+\midrule
+6 & Proposal (Milestone 1). Download and freeze data; fix table format. & Install CUDA toolkit; run the samples on the GTX 1660. & Set up repository, CMake, NASM build; Philox header. \\
+7 & Candidate table, closeness scores, separation table; QUBO/Ising builder; Python exhaustive checker. & \textbf{CUDA ramp-up}: vector add; a min-reduction kernel; a kernel that gives each thread its own Philox stream. & C++ exact search; reference energy function (``the judge''); timing harness. \\
+8 & Scalar C++ SA with integer deterministic mode (the reference). & GPU exact-search kernel; compare with Member 3's C++ version. & AVX2 assembly update loop and intrinsics twin; unit-test against scalar loop. \\
+9 & Formulation tests T1--T5 (\Cref{app:tests}); first AD results. & CUDA SA v1 (thread per chain); cross-platform test T7. & AVX2 SA (scalar loop + assembly update); test T7; first timing table. \\
+10 & \multicolumn{3}{l}{\textbf{Milestone 2: mid-project demo} (above).} \\
+11 & Install CUDA-Q; QAOA on $n\le 16$; test T6. & CUDA SA v2 (warp per chain); Nsight profiling. & Large-instance speed tests on all three platforms. \\
+12 & QAOA for $n$ up to 24; $\lambda$ study; (stretch) XY-mixer QAOA. & Tune kernels; profiling write-up. & Plots and tables; parallel-algorithm write-up. \\
+13 & \multicolumn{3}{l}{\textbf{Milestone 3}: GitHub submission, demo, optional paper.} \\
+\bottomrule
+\end{tabularx}
+\caption{Schedule by academic week and member.}
+\label{tab:schedule}
+\end{table}
+
+\paragraph{Dependencies.} Member 1's Week 7 problem files feed everything. The scalar SA (Week 8) must exist before the AVX2 and CUDA versions can be checked against it (Week 9). QAOA (Weeks 11--12) needs only the Ising file and the exact-search answers.
+

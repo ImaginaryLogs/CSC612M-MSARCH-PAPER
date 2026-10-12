@@ -1,0 +1,59 @@
+\section{Review of Related Literature}
+\label{sec:rrl}
+
+\subsection{Network proximity and the disease module}
+
+Network medicine studies disease through the network of molecular interactions \cite{barabasi2011network}. Menche et al.\ \cite{menche2015uncovering} showed that disease proteins form connected modules in the incomplete human interactome and defined the \emph{network separation} $s_{AB}$ of two protein sets, which is negative when the sets overlap in the network and positive when they are apart. Guney et al.\ \cite{guney2016network} turned closest-distance proximity into a drug screen, standardizing it against degree-matched random target sets to obtain a $z$-score; drugs with significantly negative $z$ are enriched for known treatments. Cheng et al.\ \cite{cheng2018network} applied the approach to cardiovascular disease with population-based validation.
+
+\subsection{Network-based drug combinations}
+
+Cheng, Kov\'acs and Barab\'asi \cite{cheng2019combinations} combined the two measures: for a drug pair $(A,B)$ and disease module $S$, they considered the proximity of each drug to $S$ and the separation $s_{AB}$ between the drugs' targets. Using approved combinations for hypertension and cancer, they found that only the \emph{complementary exposure} pattern (both drugs close to $S$, targets separated, $s_{AB}\ge 0$) correlated with therapeutic effect, and that the drug--drug proximity $z$-score by itself could not distinguish approved combinations from random pairs. This finding is the scientific basis of our objective: reward proximity of each drug to the AD module, penalize overlap between the selected drugs' targets.
+
+\subsection{Network proximity in Alzheimer's disease}
+
+Fang et al.\ \cite{fang2021sildenafil} built AD endophenotype modules, screened drugs by proximity, and used insurance-claims data to associate sildenafil use with lower AD incidence. Later pipelines ranked drugs for different pathological stages of AD \cite{csbj2023stages} and combined proximity ranking with heart-rhythm (Long QT) risk screening \cite{lqt2025ad}. The AD genes used to build modules come from large genome-wide association studies \cite{bellenguez2022new}, and the annual pipeline reviews \cite{cummings2025pipeline,cummings2026pipeline} list drugs currently in AD trials, including repurposed agents. These studies rank single drugs; we found none that optimizes AD combinations with the complementary-exposure principle.
+
+\subsection{QUBO formulations and constraints}
+
+Many selection problems can be written as QUBOs, $\min_{\bx\in\{0,1\}^n} \bx^\top Q \bx$ \cite{glover2019tutorial,lucas2014ising}. Constraints such as ``exactly $k$ items'' are usually added as quadratic penalties, $A(\sum_i x_i - k)^2$. This is convenient but has known costs: the penalty couples every pair of variables, making $Q$ dense, and a penalty weight that is too small allows invalid solutions while one that is too large flattens the energy landscape that heuristics and quantum algorithms rely on \cite{glover2019tutorial}.
+
+\subsection{Parallel simulated annealing}
+
+Simulated annealing (SA) \cite{kirkpatrick1983optimization} is the standard classical heuristic for QUBO and Ising problems. A single SA chain is inherently sequential, since every step depends on the previous state, so parallel implementations usually run many independent chains (replicas) or exchange states between chains at different temperatures (parallel tempering) \cite{earl2005parallel}. Isakov et al.\ \cite{isakov2015optimised} showed how careful data layout, precomputed acceptance tables and multi-spin coding make SA on Ising models much faster on CPUs. Counter-based random-number generators such as Philox \cite{salmon2011parallel} produce the same random stream on CPU and GPU from a (key, counter) pair, which makes cross-platform reproducibility possible.
+
+\subsection{QAOA and constraint-preserving mixers}
+
+QAOA \cite{farhi2014qaoa} alternates a cost layer $e^{-i\gamma H_C}$ with a mixing layer $e^{-i\beta H_M}$, starting from the uniform superposition, and tunes the $2p$ angles classically. Hadfield et al.\ \cite{hadfield2019qaoa} generalized it to the Quantum Alternating Operator Ansatz, in which the mixer and initial state are chosen so the state never leaves the set of valid solutions. For ``exactly $k$ ones'' constraints, \emph{XY mixers} preserve the number of ones (the Hamming weight) \cite{wang2020xy}, and a natural initial state is the Dicke state, the equal superposition of all weight-$k$ strings, which can be prepared deterministically with $O(kn)$ gates \cite{bartschi2019dicke}. Cook, Eidenbenz and B\"artschi \cite{cook2020kvertex} studied this ansatz on Maximum $k$-Vertex Cover, a problem with the same cardinality structure as ours, comparing ring and complete-graph XY mixers. Zhou et al.\ \cite{zhou2020qaoa} described parameter-initialization heuristics that make QAOA training at larger depth $p$ practical.
+
+\subsection{GPU simulation of quantum circuits}
+
+NVIDIA cuQuantum \cite{bayraktar2023cuquantum} provides cuStateVec (state-vector simulation) and cuTensorNet (tensor-network simulation). It is a simulation library, not a quantum processor or an optimizer. CUDA-Q \cite{cudaq_docs} is NVIDIA's quantum programming framework; its default \texttt{nvidia} target runs single-GPU state-vector simulation through cuStateVec, with an \texttt{fp64} option for double precision \cite{cudaq_docs}. cuStateVec's documented requirements include compute capability 7.0 or higher (Volta, Turing, Ampere, Ada, Hopper) \cite{cuquantum_docs}.
+
+\subsection{Quantum approaches to drug combinations}
+
+Ramos, Coutinho and Magano \cite{ramos2025quantum} built a QUBO from the complementary-exposure principle and sampled it with simulated quantum annealing, testing it on diabetes mellitus, rheumatoid arthritis, asthma and brain neoplasms against experimentally validated combinations. Their interactome and drug--target data come from Cheng et al.\ \cite{cheng2019combinations}, and their code is public. They did not study AD, gate-model QAOA, constraint-preserving mixers, or parallel classical solvers.
+
+\subsection{Synthesis and gap}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.3cm}X cccc}
+\toprule
+Work & What it does & AD & Comb. & Parallel classical & Gate QAOA \\
+\midrule
+Guney et al.\ \cite{guney2016network} & Proximity $z$-score drug screen & -- & -- & -- & -- \\
+Cheng et al.\ \cite{cheng2019combinations} & Complementary exposure for combinations & -- & \checkmark & -- & -- \\
+AD proximity studies \cite{fang2021sildenafil,csbj2023stages,lqt2025ad} & AD single-drug repurposing & \checkmark & -- & -- & -- \\
+Isakov et al.\ \cite{isakov2015optimised} & Optimized CPU SA for Ising & -- & -- & \checkmark & -- \\
+Cook et al.\ \cite{cook2020kvertex} & XY-mixer QAOA, cardinality constraint & -- & -- & -- & \checkmark \\
+Ramos et al.\ \cite{ramos2025quantum} & Combination QUBO, simulated quantum annealing & -- & \checkmark & -- & -- \\
+Sister project & GPU proximity screen for AD & \checkmark & -- & \checkmark & -- \\
+\textbf{This work} & AD combination QUBO; SA on scalar, AVX2 and CUDA; exact GPU reference; QAOA vs.\ exact & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabularx}
+\caption{How this project relates to prior work. \todo{Confirm from the full texts of \cite{csbj2023stages,lqt2025ad} that neither optimizes combinations.}}
+\label{tab:gap}
+\end{table}
+
+The pieces exist separately: a validated network principle for combinations, AD-specific proximity studies, fast parallel annealing, constraint-preserving QAOA, and one quantum-annealing study of combination QUBOs outside AD. What is missing is (a) a carefully validated AD combination QUBO, (b) a controlled comparison of one combination-search algorithm across scalar, SIMD and SIMT hardware, and (c) a measurement of gate-model QAOA against exact optima on these biology-derived instances.

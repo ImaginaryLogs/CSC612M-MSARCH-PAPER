@@ -1,0 +1,29 @@
+\section{Correctness and Regression Tests}
+\label{app:tests}
+
+These tests check that the code computes what the math says. They say nothing about whether a combination works biologically (\Cref{app:eval}) or how fast the code is (\Cref{app:eval}). CPU tests run on every commit; GPU tests run on the GTX 1660 before every round of benchmarks. Each test has one owner.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{0.7cm}>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{8.0cm}>{\raggedright\arraybackslash}p{1.2cm}}
+\toprule
+ID & Test & What it does and when it passes & Owner \\
+\midrule
+\endhead
+\multicolumn{4}{l}{\textit{Scoring function}} \\
+T1 & QUBO vs.\ direct energy & For all $2^n$ yes/no patterns ($n\le 16$, Python), the QUBO energy equals the direct energy plus $A(\text{count}-k)^2$, to $10^{-9}$. & M1 \\
+T2 & Exactly $k$ drugs & Every answer from exact search and SA has exactly $k$ different drugs, all in range. & M3 \\
+T3 & Safe penalty value & With $A$ just above the proven value, the best of all $2^n$ patterns is valid and equals the exact-search answer, on every small AD problem and 1{,}000 random ones ($n\le 16$). With $A$ deliberately too small, a known counterexample is caught (shows the test can fail). & M1 \\
+T4 & Integer rounding & Integer-mode best answer equals the double-precision best answer on every small problem. & M1 \\
+T5 & QUBO $\to$ Ising & For all $2^n$ patterns ($n\le 16$), the Ising energy (times scale, plus offset) equals the QUBO energy, to $10^{-6}$. & M1 \\
+\multicolumn{4}{l}{\textit{Solvers}} \\
+T6 & Qubit order & Prepare known patterns in CUDA-Q, measure, decode; the decoded drugs must match. & M1 \\
+T7 & Same decisions everywhere & Deterministic mode, fixed seed: scalar, AVX2 assembly, AVX2 intrinsics, CUDA v1 and CUDA v2 make identical accept/reject decisions for the first $10^6$ steps of chains 0--63 and end in identical states. & M2, M3 \\
+T8 & Exact search agrees & CPU and GPU exact search return the same best energy, tie count and first best combination; a brute-force Python check agrees for $n\le 12$. & M2, M3 \\
+T9 & Helper array stays correct & In debug builds, every $10^4$ accepted swaps, rebuild $g$ from scratch and compare with the updated $g$ (must match exactly in integer mode). & M3 \\
+T10 & Seeds & The same seed repeats a run exactly; different seeds give different runs. & M2 \\
+\multicolumn{4}{l}{\textit{Data}} \\
+T11 & Sister scores unchanged & Our script reproduces the sister project's $z$ for five drugs within random-sampling tolerance; file checksums match the frozen list. & M1 \\
+T12 & Edge cases & Drug with no targets in the interactome $\to$ excluded; single-target drug $\to$ documented separation rule applied and flagged; all-zero $P$ $\to$ answer is the $k$ largest rewards; $k=1$ and $k=n-1$ work; ties counted correctly. & M1, M3 \\
+\bottomrule
+\end{longtable}
+
+\textbf{QAOA circuit checks} (part of T5/T6): with all angles set to zero, the samples are spread evenly over all patterns (checked with a $\chi^2$ test at $n=10$).

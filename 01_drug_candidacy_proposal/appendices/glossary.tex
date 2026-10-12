@@ -1,0 +1,53 @@
+\section{Glossary}
+\label{app:glossary}
+
+This project mixes biology, optimization, parallel computing and quantum computing. Nobody on the team needs to know all four. This glossary gives just enough of each term to read the rest of the document. Terms are grouped by who needs them most.
+
+\subsection{Biology (everyone)}
+
+\begin{description}[leftmargin=0.4cm,style=nextline]
+\item[Interactome] A graph whose nodes are human proteins and whose edges are known physical interactions between them. About 15{,}000--20{,}000 nodes.
+\item[Target] A protein that a drug binds to. Most drugs have one to a few dozen targets.
+\item[Disease module] The group of proteins linked to a disease (here, AD). They tend to sit close together in the interactome.
+\item[Proximity score $z_i$] How close drug $i$'s targets are to the AD module, compared with random look-alike drugs. Negative means closer than chance; more negative is better. Computed by the sister project or by our small reference script.
+\item[Separation $s_{ij}$] How far apart drug $i$'s targets are from drug $j$'s targets. Negative means the two drugs hit overlapping parts of the network.
+\item[Complementary exposure] The pattern of a good combination: each drug is close to the disease, but the drugs' targets do not overlap.
+\end{description}
+
+\subsection{Optimization (everyone)}
+
+\begin{description}[leftmargin=0.4cm,style=nextline]
+\item[Combination size $k$] How many drugs we pick (2, 3 or 4 for biological results).
+\item[Energy $E$] The score of a combination. \emph{Lower is better.} Rewards are negative energy; penalties are positive energy.
+\item[Reward $w_i$] How much we like drug $i$ on its own (from $z_i$).
+\item[Penalty $P_{ij}$] How much we dislike picking drugs $i$ and $j$ together (from $s_{ij}$).
+\item[$\lambda$ (lambda)] A dial that sets how much overlap matters compared with closeness to AD.
+\item[Exact search / enumeration] Try every possible combination and keep the best. Always correct, but only possible when the number of combinations, $\binom{n}{k}$, is small enough.
+\item[Simulated annealing (SA)] A search method that starts from a random combination and repeatedly tries small changes (here: swap one chosen drug for an unchosen one). Changes that improve the energy are always kept; changes that make it worse are sometimes kept, more often early on (``high temperature'') than later (``low temperature''), so the search does not get stuck.
+\item[Chain / replica] One independent run of SA. Running many chains with different random numbers and keeping the best result is the main source of parallelism.
+\item[Sweep] $n$ proposed swaps, one ``pass'' over the problem size.
+\end{description}
+
+\subsection{Parallel computing (everyone)}
+
+\begin{description}[leftmargin=0.4cm,style=nextline]
+\item[SIMD lane] One slot in a vector register. A 256-bit \texttt{ymm} register holds eight 32-bit lanes, so one instruction (e.g.\ \texttt{vpaddd}) does eight additions.
+\item[Kernel] A function that runs on the GPU, launched with many threads at once.
+\item[Thread, warp, block] A GPU thread is one worker. 32 threads form a \emph{warp} and execute the same instruction together, like a 32-lane SIMD unit. Warps are grouped into \emph{blocks} that share fast on-chip \emph{shared memory}.
+\item[Coalesced access] When the 32 threads of a warp read 32 neighboring memory words, the GPU combines them into one fast transaction. Scattered reads are much slower.
+\item[Reduction] Combining many values into one (e.g.\ finding the minimum energy across all threads).
+\item[Philox] A random-number generator that turns a (key, counter) pair into random bits. Same inputs give the same outputs on CPU and GPU, which is how all three versions draw identical random numbers.
+\end{description}
+
+\subsection{Quantum (owner of the quantum part; others may skip)}
+
+\begin{description}[leftmargin=0.4cm,style=nextline]
+\item[QUBO] ``Quadratic Unconstrained Binary Optimization'': minimize a function of yes/no variables that has single terms ($x_i$) and pair terms ($x_ix_j$) only. Our energy is already in this shape; the ``exactly $k$ drugs'' rule is added as a penalty term to make it a QUBO.
+\item[Ising model] The same problem written with variables $+1/-1$ instead of $0/1$. Quantum software expects this form. Converting between the two is a fixed formula (\Cref{app:formulation}).
+\item[Qubit] The quantum version of a bit. One qubit per candidate drug.
+\item[State vector] A classical computer simulates $n$ qubits by storing $2^n$ complex numbers. Each extra qubit doubles the memory; this is why the GPU's 6 GB limits us to about 28 qubits.
+\item[QAOA] ``Quantum Approximate Optimization Algorithm'': a quantum circuit with a few adjustable angles. A classical optimizer tunes the angles so that measuring the qubits tends to give low-energy combinations.
+\item[Depth $p$] How many layers the QAOA circuit has. More layers can give better answers but cost more to simulate and tune.
+\item[Shot] One measurement of the circuit, giving one candidate combination.
+\item[cuQuantum / cuStateVec / CUDA-Q] NVIDIA's libraries for simulating quantum circuits on a GPU (cuQuantum, whose state-vector part is cuStateVec) and for writing quantum programs (CUDA-Q). They are simulators, not quantum computers and not optimizers.
+\end{description}

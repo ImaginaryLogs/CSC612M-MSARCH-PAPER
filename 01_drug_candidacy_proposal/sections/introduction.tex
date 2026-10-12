@@ -1,0 +1,46 @@
+\section{Introduction}
+\label{sec:intro}
+
+\subsection{Why Alzheimer's disease needs drug combinations}
+
+Alzheimer's disease (AD) is the most common cause of dementia. Its two hallmarks are plaques of amyloid-$\beta$ between nerve cells and tangles of tau protein inside them, but inflammation, synaptic loss, damage to blood vessels and changes in metabolism all play a part. Drugs aimed at a single target have a long record of failure in AD, and the field now expects that several processes may need to be treated at once. The annual review of the AD drug-development pipeline reports that about a third of the drugs now in AD clinical trials are \emph{repurposed}, meaning they are already approved for another disease \cite{cummings2025pipeline,cummings2026pipeline}, and its authors expect combination therapies to follow \cite{cummings2026pipeline}. Clinical trials of combinations are slow and expensive, so a computer method that proposes a short list of promising combinations is a useful way to generate hypotheses.
+
+\subsection{From single drugs to combinations}
+
+Network medicine treats the cell's proteins as a graph, the human \emph{interactome}. Proteins linked to the same disease cluster together in this graph, forming a \emph{disease module} \cite{barabasi2011network,menche2015uncovering}. A drug acts on a few proteins, its \emph{targets}. Drugs whose targets are unusually close to the disease module are more likely to treat that disease \cite{guney2016network}. Our sister project (``GPU-Accelerated Network Screening for Alzheimer's Disease Drug Repurposing'') computes this closeness score for every drug.
+
+For combinations, Cheng, Kov\'acs and Barab\'asi \cite{cheng2019combinations} looked at how the targets of two drugs relate to each other and to the disease module. Of the six possible patterns, only one went with combinations that actually work in patients: both drugs are close to the disease module, but their targets are in different parts of the network. They called this \emph{complementary exposure}.
+
+\begin{plainwords}
+Picture the interactome as a city map, with AD living in one neighborhood. Each drug is a delivery truck that stops at a few buildings. A good \emph{single} drug stops near the AD neighborhood. A good \emph{team} of drugs stops near the AD neighborhood, but each truck covers a different street, so they do not waste effort on the same buildings. Choosing the best team of, say, three trucks out of thirty is the problem this project solves.
+\end{plainwords}
+
+\subsection{Why this is a computer architecture problem}
+
+Choosing $k$ drugs out of $n$ means searching $\binom{n}{k}$ combinations. That is small for $n=20$, $k=3$ (1{,}140 combinations), but it grows quickly: $\binom{1000}{5}\approx 8\times 10^{12}$. The search is made of many cheap, identical operations:
+\begin{itemize}
+\item \textbf{Exact search} scores every combination, and each score is independent of the others: one GPU thread can check a slice of them.
+\item \textbf{Simulated annealing} runs many independent search chains, and every accepted step inside a chain adds two length-$n$ arrays: exactly what a \texttt{ymm} register and \texttt{vpaddd} are for.
+\item \textbf{Quantum simulation} stores $2^n$ complex numbers and applies the same small operation to all of them for every gate.
+\end{itemize}
+These are the kinds of work that SIMD instructions (AVX2) and GPUs (CUDA) do well. Not every part speeds up equally, and part of our contribution is measuring where the speedup comes from and where it stops.
+
+\subsection{The quantum part}
+
+Our scoring function has single terms and pair terms only, which is the shape of a Quadratic Unconstrained Binary Optimization (QUBO) problem \cite{glover2019tutorial,lucas2014ising}. QUBOs are the standard input for quantum optimization algorithms such as QAOA \cite{farhi2014qaoa}. We have no quantum computer, but NVIDIA cuQuantum \cite{bayraktar2023cuquantum} simulates one on an ordinary NVIDIA GPU. Because our instances are small enough to solve exactly, we can measure precisely how close simulated QAOA gets to the true best answer. A recent study wrote network-based drug-combination prediction as a QUBO and solved it with simulated quantum annealing for four other diseases \cite{ramos2025quantum}; we found no study that applies QAOA to AD drug combinations.
+
+\subsection{What this project delivers}
+
+\begin{enumerate}
+\item A documented and checked scoring function (QUBO) for AD drug combinations, built from public data.
+\item An exact GPU search over all valid combinations, which gives the reference answer.
+\item One simulated-annealing algorithm written three ways (sequential C++, AVX2 assembly, CUDA), with identical results, and an execution-time comparison.
+\item QAOA, simulated with CUDA-Q and cuStateVec, measured against the exact answer.
+\end{enumerate}
+Several larger ideas were considered and left out to keep the project finishable in one term; they are listed with reasons in \Cref{app:limitations}.
+
+\subsection{Relationship to the network-screening project}
+
+This project replaces the optional Module 5 of the sister project and can run without it. It needs two things for each candidate drug: its closeness score $z$ and its list of targets. It can take these from the sister project's output, or compute them for a hand-picked candidate list with a small script of its own (Decision D1, \Cref{sec:decisions}). The two projects agree on one table format (\Cref{app:data}), so either source can be plugged in without changing the solvers.
+
+Section~\ref{sec:rrl} reviews related work, Section~\ref{sec:problem} states the problem and research questions, and Sections~\ref{sec:method}--\ref{sec:milestones} follow the course outline. \Cref{app:glossary} is a glossary; the remaining appendices hold the formulas, kernel designs, evaluation plan, data formats, tests, limitations and risks.

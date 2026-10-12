@@ -1,0 +1,110 @@
+\section{Mathematical Formulation}
+\label{app:formulation}
+
+This appendix is mainly for Member 1. Members 2 and 3 only need \Cref{eq:constrained} and the plain-words box below it.
+
+\subsection{Network quantities (preserved from the sister project)}
+
+Let $G=(V,E)$ be the interactome (largest connected component) and $d(u,v)$ the shortest-path length. For drug $i$ with target set $T_i\subseteq V$ and AD module $S$, the closest distance and its standardized score are, exactly as in the sister project and \cite{guney2016network},
+\begin{equation}
+d_c(S,T_i)=\frac{1}{|T_i|}\sum_{t\in T_i}\min_{s\in S} d(t,s), \qquad z_i=\frac{d_c(S,T_i)-\mu_i}{\sigma_i},
+\end{equation}
+where $\mu_i,\sigma_i$ come from degree-matched random target sets. This project does not change these definitions; it only consumes $z_i$. If the scores come from the sister project, the file hash and its configuration (number of random samples, degree-bin rule, AD module version) are recorded with the candidate table (\Cref{app:data}).
+
+For two target sets $A=T_i$, $B=T_j$, the network separation is \cite{menche2015uncovering,cheng2019combinations}
+\begin{equation}
+s_{AB}=\langle d_{AB}\rangle-\frac{\langle d_{AA}\rangle+\langle d_{BB}\rangle}{2},
+\end{equation}
+with $\langle d_{AA}\rangle=\frac{1}{|A|}\sum_{a\in A}\min_{a'\in A\setminus\{a\}} d(a,a')$ and
+\begin{equation}
+\langle d_{AB}\rangle=\frac{1}{|A|+|B|}\left(\sum_{a\in A}\min_{b\in B}d(a,b)+\sum_{b\in B}\min_{a\in A}d(a,b)\right).
+\end{equation}
+\textbf{Single-target drugs.} $\langle d_{AA}\rangle$ is undefined when $|A|=1$. We set it to $0$ and flag the pair \proposed{}. \todo{Check the convention used in the code released with \cite{cheng2019combinations} or \cite{ramos2025quantum} and adopt it if it differs; record the choice in the configuration.}
+
+\subsection{Rewards}
+
+\begin{itemize}
+\item \textbf{Eligibility.} Drug $i$ is eligible if it has at least one target in $G$, $z_i$ is finite, and $z_i<0$ \proposed. Drugs with $z_i\ge 0$ are not closer than chance and are excluded rather than given negative rewards. This fixes a sign problem in the sister project's Appendix A, where $w_i=-z_i$ would be negative for $z_i>0$.
+\item \textbf{Transform.} $\tilde w_i=\min(-z_i,\,z_{\max})$ with $z_{\max}=10$ by default, to limit the influence of outliers; then $w_i=\tilde w_i/\max_j\tilde w_j\in(0,1]$ \proposed. An alternative, $w_i=-\log_{10}p_i$ from the empirical $p$-value, is reported as a sensitivity check only.
+\item \textbf{Shortlist.} For biological instances of size $n$, take the $n$ eligible drugs with the most negative $z_i$, breaking ties by drug identifier.
+\item \textbf{Missing scores.} A drug without a score is ineligible; it is never imputed.
+\end{itemize}
+
+\subsection{Pairwise penalties: what they mean and what they do not}
+
+$P_{ij}=\max(0,-s_{ij})$, normalized to $[0,1]$ by the largest value in the instance. It penalizes \emph{target overlap in the network}, which Cheng et al.\ found to be associated with non-efficacious pairs \cite{cheng2019combinations}. It is not a measure of adverse drug--drug interactions, clinical synergy, or pharmacokinetic interference; those need different evidence and are left out of this project (\Cref{app:limitations}). No positive synergy reward is used in the core objective, because no reliable AD synergy data exist \proposed.
+
+\textbf{Density.} $P_{ij}>0$ only for pairs with $s_{ij}<0$. The share of nonzero entries in the AD instances is measured and reported \todo{measure}.
+
+\subsection{The constrained problem}
+
+With $x_i\in\{0,1\}$ ($x_i=1$: drug $i$ selected),
+\begin{equation}
+\min_{\bx\in\{0,1\}^n} f(\bx)=-\sum_{i}w_ix_i+\lambda\sum_{i<j}P_{ij}x_ix_j \quad\text{subject to}\quad \sum_i x_i=k.
+\label{eq:constrained}
+\end{equation}
+This is the problem every solver is judged on. The classical solvers solve it directly.
+
+\begin{plainwords}
+Each drug is either in ($x_i=1$) or out ($x_i=0$). The energy adds the negative reward of every drug that is in, plus $\lambda$ times the overlap of every pair of drugs that are both in. We want exactly $k$ drugs in and the lowest possible energy.
+\end{plainwords}
+
+\subsection{Penalty QUBO}
+
+Adding $A(\sum_i x_i-k)^2$ and using $x_i^2=x_i$ gives $E(\bx)=\sum_i a_ix_i+\sum_{i<j}b_{ij}x_ix_j+c$ with
+\begin{equation}
+a_i=-w_i+A(1-2k),\qquad b_{ij}=\lambda P_{ij}+2A,\qquad c=Ak^2.
+\label{eq:qubo}
+\end{equation}
+Every $b_{ij}$ is nonzero, so the QUBO links every pair of drugs even when $P$ is mostly zero.
+
+\begin{plainwords}
+The penalty $A(\text{count}-k)^2$ is zero when exactly $k$ drugs are chosen and grows quickly otherwise. If $A$ is too small, cheating (picking too many or too few drugs) can pay off; if it is too large, QAOA has a harder time telling good valid answers from bad ones. The proposition below gives the smallest safe value.
+\end{plainwords}
+
+\paragraph{Penalty bound.} Let $w_{\max}=\max_i w_i$ and $R_{\max}=\max_i\sum_{j\ne i}P_{ij}$. Assume $w_i\ge 0$ and $P_{ij}\ge 0$ (guaranteed above).
+
+\textbf{Proposition.} If $A>\max(w_{\max},\,\lambda R_{\max})$, every $\bx$ with $\sum_ix_i\ne k$ has a single-bit neighbor with strictly lower $E$. Hence every global minimizer of $E$ satisfies the constraint and minimizes \eqref{eq:constrained}.
+
+\textit{Proof.} Let $m=\sum_ix_i$. If $m>k$, turn off any selected $i$: $f$ changes by $w_i-\lambda\sum_{j\in\Sel\setminus\{i\}}P_{ij}\le w_{\max}$, and the penalty changes by $A[(m-1-k)^2-(m-k)^2]=A[1-2(m-k)]\le -A$; the total change is below $0$. If $m<k$, turn on any unselected $i$: $f$ changes by $-w_i+\lambda\sum_{j\in\Sel}P_{ij}\le\lambda R_{\max}$, and the penalty changes by $A[2(m-k)+1]\le -A$; again the total is below $0$. On the constraint set the penalty is $0$, so $E=f$ there. $\square$
+
+This bound is smaller than the one in the sister project's Appendix A ($A>\max_iw_i+\lambda\sum_jP_{ij}$), which matters for QAOA, where an unnecessarily large $A$ compresses the spread of valid energies. Default $A=1.1\max(w_{\max},\lambda R_{\max})$; QAOA experiments also use $2\times$ and $4\times$ the bound. The proposition is checked exhaustively by test T3 (\Cref{app:tests}).
+
+\subsection{QUBO to Ising}
+
+We use $x_i=(1-z_i)/2$, so computational basis state $|0\rangle$ ($z_i=+1$) means ``not selected'' and a measured $1$ means ``selected''. Substituting into $E$:
+\begin{equation}
+H=\sum_i h_iZ_i+\sum_{i<j}J_{ij}Z_iZ_j+C,\quad h_i=-\frac{a_i}{2}-\frac{1}{4}\sum_{j\ne i}b_{ij},\quad J_{ij}=\frac{b_{ij}}{4},\quad C=c+\frac{1}{2}\sum_ia_i+\frac{1}{4}\sum_{i<j}b_{ij}.
+\end{equation}
+The offset $C$ is stored with the Ising file so that decoded energies can be compared with $f$ directly.
+
+\subsection{Coefficient scaling}
+
+The argmin is unchanged by positive scaling. For classical float solvers, coefficients are used as normalized above. For QAOA, all Ising coefficients are divided by $\max(|h_i|,|J_{ij}|)$ so the angle $\gamma$ has a comparable range across instances; the scale factor is stored. For the deterministic integer mode, $w$ and $\lambda P$ are multiplied by $2^{q}$ and rounded, with $q$ chosen so the largest possible $|E|$ of a $k$-subset stays below $2^{30}$; the rounding error per energy is at most $(k+\binom{k}{2})\cdot 2^{-q-1}$ in normalized units, and test T4 checks that the integer optimum equals the float64 optimum on every small instance.
+
+\subsection{Alternative constraint encodings}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.1cm}>{\raggedright\arraybackslash}p{1.8cm}>{\raggedright\arraybackslash}p{2.6cm}>{\raggedright\arraybackslash}p{2.3cm}X}
+\toprule
+Encoding & Extra variables & Couplings & Validity & QAOA cost per layer \\
+\midrule
+Exact-$k$ penalty (\textbf{used} for QAOA) & 0 & all $\binom{n}{2}$ & only at optimum, if $A$ above bound & $n$ $R_Z$ + $\binom{n}{2}$ $ZZ$; X mixer $n$ $R_X$ \\
+``At most $k$'' with binary slack & $\lceil\log_2(k+1)\rceil$ & all pairs incl.\ slack & only at optimum & more qubits and couplings; not used \\
+Search only valid combinations (our SA and exact search) & 0 & $\mathrm{nnz}(P)$ & always & classical only (\textbf{used}) \\
+XY mixer + Dicke state (stretch goal) & 0 & $\mathrm{nnz}(P)$ in cost & always (every gate preserves weight) & $n$ $R_Z$ + $\mathrm{nnz}(P)$ $ZZ$; ring mixer $n$ XY gates or complete mixer $\binom{n}{2}$; Dicke prep $O(kn)$ once \\
+\bottomrule
+\end{tabularx}
+\caption{Constraint encodings. ``$\mathrm{nnz}(P)$'' is the number of overlapping pairs.}
+\label{tab:encodings}
+\end{table}
+
+\subsection{Ties, missing data and infeasible outputs}
+
+\begin{itemize}
+\item \textbf{Ties.} Exact search returns the optimal energy, the number of tied optima, and the lexicographically smallest optimal combination; all tied optima are listed for biological instances.
+\item \textbf{Invalid outputs.} Only QAOA can return invalid patterns (not exactly $k$ drugs). They are counted as invalid and never silently fixed.
+\item \textbf{Missing pairwise evidence.} Separation is defined for every pair in the connected interactome; if a target set becomes empty after filtering, the drug is ineligible.
+\end{itemize}

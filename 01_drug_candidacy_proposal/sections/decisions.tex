@@ -1,0 +1,106 @@
+\section{Scope and Limitations}
+\label{sec:decisions}
+
+Each decision below lists the options, judges them first on \emph{doability} (can three students finish it this term on a GTX 1660, with two of them new to CUDA and to optimization?) and then on research novelty, and states what we chose. Claims marked \established{} come from the cited sources; claims marked \proposed{} are our own design choices.
+
+\subsection{D1: Where the candidate drugs come from}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.0cm}XX}
+\toprule
+Option & Doability & Novelty \\
+\midrule
+A. Sister project's ranked output & Depends on the other team (their list is due in Week 10). Little work for us if it arrives. & Highest: a full screen-then-combine pipeline. \\
+B. Curated list (pipeline reviews + approved AD drugs + published AD network hits) & High: tens of drugs; their closeness scores need only a small script. The data of \cite{cheng2019combinations} is ready to use. & Moderate: AD-specific and easy to explain, but small. \\
+C. Both, through one shared table format & High: never blocked. & Like A when A arrives; like B otherwise. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{decision}{D1 (chosen: C)}
+Build and test everything on the curated list. If the sister project's output arrives, use it for the larger instances. If not, score the scaling pool with our own script and label those instances as speed tests, not biological results.
+\end{decision}
+
+
+The curated list is small, which is good for biology and for exact answers, but too small to show interesting speedups. So the project uses two families of problems: small biological ones (about 12--24 drugs) for correctness and QAOA, and large ones (hundreds to a couple of thousand drugs) for speed tests.
+
+
+\subsection{D2: How to enforce ``exactly $k$ drugs''}
+
+The textbook trick is to add a penalty $A(\sum_i x_i-k)^2$ to the energy. It works, but it links every pair of drugs, it needs a good value of $A$, and it makes almost every yes/no pattern invalid: for $n=20$, $k=3$, only 1{,}140 of about a million patterns (0.1\%) have exactly three drugs \established{} (arithmetic).
+
+\begin{decision}{D2 (chosen)}
+\begin{itemize}[leftmargin=*]
+\item \textbf{Classical solvers} only ever look at valid combinations: exact search lists only $k$-drug combinations, and SA only swaps drugs in and out, so the count stays at $k$. No penalty is needed, and every answer is valid \proposed.
+\item \textbf{QAOA} uses the penalty version, because standard QAOA cannot enforce a count by itself.
+\end{itemize}
+\end{decision}
+
+\subsection{D3: Which search algorithm to parallelize}
+
+\begin{decision}{D3 (chosen: simulated annealing with swap moves)}
+It is short to write, easy to explain, and has a clear vectorizable step. Running many independent chains is natural on a GPU. Other methods (tabu search, parallel tempering) were considered and left out.
+\end{decision}
+
+\subsection{D4: SIMD style}
+
+\begin{decision}{D4 (chosen: AVX2 assembly)}
+The course asks for AVX/AVX2/AVX-512 assembly, and the whole team has written \texttt{xmm}/\texttt{ymm} assembly before. The inner loop is written in NASM and called from C++. A C++ intrinsics version of the same loop is kept as a cross-check. AVX-512 is not used because many consumer CPUs lack it. For fairness, the sequential baseline is compiled with automatic vectorization turned off, and an automatically vectorized build is also reported.
+\end{decision}
+
+\subsection{D5: Making the three versions give identical answers}
+
+With floating-point numbers, the CPU and GPU round slightly differently, so after a few thousand steps their searches drift apart, and it becomes hard to tell a bug from rounding.
+
+\begin{decision}{D5 (chosen: integer ``deterministic mode'')}
+Scale all rewards and penalties to 32-bit integers, draw all random numbers from Philox with the same seed, and decide whether to accept a step with a shared lookup table. Then the scalar, AVX2 and CUDA versions must make exactly the same decisions, and comparing them catches bugs immediately. This is mainly a \emph{debugging tool}: it makes the GPU version much easier to get right \proposed.
+\end{decision}
+
+\subsection{D6: Quantum method}
+
+\begin{decision}{D6 (chosen: standard QAOA with the penalty)}
+QAOA is the standard gate-based quantum method for this kind of problem and runs on CUDA-Q's GPU simulator. A variant that never produces invalid combinations (an ``XY mixer'' starting from a ``Dicke state'' \cite{hadfield2019qaoa,wang2020xy,bartschi2019dicke}) would likely work better but needs a much harder circuit; it is a \textbf{stretch goal}, attempted only if standard QAOA is finished by Week 12 (\Cref{app:limitations}).
+\end{decision}
+
+\subsection{D7: Who does what}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.4cm}X>{\raggedright\arraybackslash}p{4.0cm}}
+\toprule
+Member & Owns & Needs to learn \\
+\midrule
+Member 1 (lead) & Data preparation; separation table; QUBO and Ising files and their tests; the scalar C++ SA (the reference everyone checks against); QAOA in CUDA-Q. & --- \\
+Member 2 & CUDA: exact-search kernel; SA kernels v1 (thread per chain) and v2 (warp per chain); Nsight profiling. & CUDA basics (Week 7 ramp-up, \Cref{sec:milestones}); SA (one afternoon with \Cref{app:classical}). \\
+Member 3 & AVX2: assembly update loop and intrinsics twin; C++ exact search; timing harness; benchmark scripts; plots and tables. & SA (one afternoon); timing methodology. \\
+\bottomrule
+\end{tabularx}
+\caption{Roles. Members 2 and 3 never need to know QUBO or quantum computing: their solvers read only $w$, $P$ and $k$. Everyone reviews everyone's code, and Members 2 and 3 pair once on the CUDA SA kernel so knowledge is not held by one person.}
+\label{tab:roles}
+\end{table}
+
+\subsection{Priorities}
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{lX}
+\toprule
+Priority & Features \\
+\midrule
+\must & Frozen data and candidate table; separation table; QUBO/Ising files with tests; exact search on CPU and GPU; SA in scalar C++, AVX2 assembly and CUDA (v1) with deterministic mode; timing tables. \\
+\should & CUDA SA v2 (warp per chain); large-instance speed tests; standard QAOA on small instances; effect of $\lambda$ on the chosen drugs. \\
+\optional & XY-mixer QAOA with Dicke state (stretch goal). \\
+\outscope & Everything in \Cref{app:limitations}: safety and side-effect data, splitting large problems for QAOA, parallel tempering, multi-core and other extra experiments, real quantum hardware. \\
+\bottomrule
+\end{tabularx}
+\caption{Feature priorities.}
+\label{tab:moscow}
+\end{table}
+
+\subsection{What is new, stated honestly}
+
+The individual methods are established: complementary exposure \cite{cheng2019combinations}, simulated annealing \cite{kirkpatrick1983optimization}, QAOA \cite{farhi2014qaoa} and GPU state-vector simulation \cite{bayraktar2023cuquantum}. What is new is putting them together and measuring them carefully: (1) an AD-specific combination QUBO with a proven penalty setting and exhaustive tests; (2) one combination-search algorithm on scalar, SIMD and GPU hardware with identical decisions, so speed differences come from the hardware alone; and (3) to our knowledge, the first QAOA study of AD drug combinations, measured against exact answers. For a student research conference, (2) and (3) are the main claims.

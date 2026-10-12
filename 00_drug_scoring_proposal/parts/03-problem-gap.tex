@@ -1,0 +1,69 @@
+\section{Problem Statement}
+\label{sec:problem}
+
+\subsection{Problem}
+
+Network proximity is a proven way to shortlist drugs for repurposing, and it has been applied to Alzheimer's disease. But the screen is expensive to run properly. It needs shortest-path distances between all pairs of $\sim$15{,}000--18{,}000 proteins, and each of the $\sim$1{,}400 or more drugs must be compared against 1{,}000 or more random samples to get a fair $z$-score. Typical implementations are sequential scripts, so researchers settle for few random samples, one version of the interaction network, and one definition of the AD module---even though results can change with each of these choices.
+
+A second, smaller problem sits on top: choosing a good \emph{combination} of drugs from the shortlist is a combinatorial selection problem. It can be written as a QUBO, the input format for quantum optimization, but it is not yet known how well a gate-based quantum algorithm (QAOA, simulated on a GPU) handles this specific AD problem compared with the exact answer and with classical solvers.
+
+\subsection{Proposed solution}
+
+We propose a CUDA program that runs the full proximity screen on the GPU, built as five modules with clear inputs and outputs so each can be developed and tested separately (Table~\ref{tab:modules}).
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}lXXl@{}}
+\toprule
+Module & Input & Output & Runs on \\
+\midrule
+1. Data preparation & Interaction list, drug--target list, AD gene list & Graph in compressed form (CSR), target and disease sets as node IDs & CPU \\
+2. All-pairs distances & Graph (CSR) & Distance matrix $D$ ($N\times N$, 1 byte per entry) & GPU \\
+3. Proximity scoring & $D$, drug target sets, AD module & Proximity and $z$-score per drug & GPU \\
+4. Ranking and validation & $z$-scores, list of AD trial drugs & Ranked candidates, validation metrics & CPU \\
+5. Combinations (optional) & Top-$n$ drugs, $D$ & Drug--drug separation matrix, QUBO, best combination & GPU (+ cuQuantum) \\
+\bottomrule
+\end{tabularx}
+\caption{Pipeline modules. Module 5 is optional and independent of the graded
+core (Modules 1--4).}
+\label{tab:modules}
+\end{table}
+
+\subsection{Research questions}
+
+\begin{enumerate}[label=\textbf{RQ\arabic*.},leftmargin=*]
+  \item How much faster is the GPU implementation than a sequential C++ implementation for the all-pairs distance step and the proximity scoring step, and how does the speedup change with network size and number of random samples?
+  \item Does the GPU implementation give exactly the same distances, and the same $z$-scores when given the same random samples, as the sequential version?
+  \item Does the proximity ranking place drugs that have entered AD clinical trials higher than simple baselines (random ranking, or ranking by number of targets)?
+  \item (Optional) On AD drug-combination QUBOs small enough to solve exactly, how close do classical heuristics and simulated QAOA get to the true best answer under the same budget, and how do biology-derived instances compare with random ones? (Appendix~\ref{app:extension})
+\end{enumerate}
+
+\subsection{Objectives}
+
+\paragraph{General objective.} To build and evaluate a GPU-accelerated
+network proximity screen for Alzheimer's disease drug repurposing.
+
+\paragraph{Specific objectives.}
+\begin{enumerate}[nosep]
+  \item Implement all-pairs shortest-path distances on the GPU using bit-parallel multi-source BFS.
+  \item Implement proximity and $z$-score computation for all drugs on the GPU, with random sampling done in parallel.
+  \item Implement the same steps sequentially in C++ and compare execution times.
+  \item Verify that GPU and CPU results match.
+  \item Rank AD repurposing candidates and measure how well the ranking recovers drugs already in AD trials.
+  \item (Optional) Formulate AD drug-combination selection as a QUBO and compare GPU brute force, simulated annealing, and QAOA.
+\end{enumerate}
+
+\subsection{Scope and limitations}
+
+\begin{itemize}[nosep]
+  \item Public data only: interaction, drug--target, and AD gene databases. No patient data are used.
+  \item Single GPU. The network has up to about 20{,}000 nodes, so the full distance matrix (at most 400~MB at one byte per entry) fits in GPU memory.
+  \item Results are \emph{hypotheses}, not treatment recommendations. Closeness in a network does not prove a drug works; clinical evidence is outside the project's scope.
+  \item The interactome is incomplete and biased toward well-studied proteins; we reduce this by comparing more than one database.
+  \item The quantum part is simulation only, limited to about 20--30 drugs (one qubit each). It does not claim to be faster than classical methods; its purpose is to measure solution quality.
+\end{itemize}
+
+\subsection{Significance}
+
+A fast screen lets researchers run the checks that are currently skipped: more random samples for stable $z$-scores, several networks, and several definitions of the AD module (for example, early-stage vs.\ late-stage genes). For the course, it is a clear case study of turning a graph problem into bitwise, data-parallel GPU work. For the optional part, it provides a realistic, biology-derived benchmark for quantum optimization.

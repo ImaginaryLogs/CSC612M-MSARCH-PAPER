@@ -1,0 +1,72 @@
+\section{Evaluation Plan}
+\label{app:eval}
+
+\subsection{Two families of test problems}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{1.9cm}>{\raggedright\arraybackslash}p{3.2cm}>{\raggedright\arraybackslash}p{3.6cm}X}
+\toprule
+Family & Source & Sizes & Used for \\
+\midrule
+Small (biological) & Curated AD list (D1) & $n\in\{12,16,20,24\}$;\newline $k\in\{2,3,4\}$;\newline $\lambda\in\{0,0.25,0.5,1,2\}$ & Checking the scoring function, exact answers, QAOA, biological results \\
+Large (speed) & Scaling pool, scored by the sister project or our script & $n\in\{128,256,\dots,2048\}$;\newline $k\in\{3,5,8\}$; $\lambda=1$ & CPU vs.\ AVX2 vs.\ GPU speed for SA and exact search \\
+\bottomrule
+\end{tabularx}
+\caption{Test problem families. Every problem file records its family and where its numbers came from. If neither source can score the scaling pool, randomly generated problems with the same statistics are used and clearly labeled as synthetic.}
+\label{tab:families}
+\end{table}
+
+\textbf{Reference answers.} Small problems: exact search. Large problems: exact search wherever it finishes in time (all $k=3$ problems; $k=5$ up to the size the GPU can handle); otherwise the best energy found by very long SA runs, reported as ``best known'', never as ``optimal''.
+
+\subsection{Small problems}
+
+All solvers get the same problem file: exact search (CPU, GPU), SA (scalar, AVX2, CUDA v1/v2), and QAOA. We report how often each finds the exact best combination, how far its answers are from it, and, for QAOA, the measures of \Cref{app:quantum}.
+
+\subsection{Large problems}
+
+SA on all three platforms, plus exact search where possible. Every answer is re-scored by the judge.
+
+\subsection{What we measure}
+
+\begin{itemize}
+\item \textbf{Answer quality}: best and median energy over runs; gap to the best answer $(E-E_{\text{opt}})/|E_{\text{opt}}|$; how often the best answer is found; spread across seeds.
+\item \textbf{Speed}: one-chain time (latency); steps per second with many chains (throughput); time until the best answer is reached (time to answer). For a solver that finds the best answer in a run with probability $p_{\text{succ}}$, the time to be 99\% sure of finding it is $t_{\text{run}}\cdot\lceil\ln 0.01/\ln(1-p_{\text{succ}})\rceil$.
+\item \textbf{Hardware use}: peak memory; achieved GPU memory bandwidth and occupancy (Nsight Compute).
+\item \textbf{Where the time goes}: data preparation, scoring, separation table, file building, solving and checking, each timed separately.
+\end{itemize}
+
+\subsection{How we time things}
+
+Two warm-up runs, then the median of 10 runs, with the spread (interquartile range). CPU: the C++ monotonic clock (\texttt{steady\_clock}). GPU: CUDA events, reported both kernel-only and end-to-end (including copying data to and from the GPU). Solver-only and total times are always reported separately. Nothing else runs on the machine during measurements, and the CPU frequency setting is recorded.
+
+\subsection{What stays the same across CPU, AVX2 and GPU, and what is tuned}
+
+\textbf{Same everywhere}: the problem, the algorithm, the temperature schedule, the number of sweeps, the random numbers, the arithmetic mode, and the judge. \textbf{Tuned per platform}: the number of chains run at once (each platform uses the number that minimizes its own time to answer), the GPU block size and kernel version, and loop unrolling. Latency and throughput comparisons use the same number of chains on every platform; time-to-answer comparisons use each platform's best setting. Both are reported, so the reader can see what was tuned.
+
+\subsection{Biological sanity checks (not proof that a combination works)}
+
+\begin{itemize}
+\item Do the chosen combinations follow complementary exposure (every drug $z<0$, every pair $s\ge 0$) more often than random $k$-drug teams from the shortlist? Reported with a permutation test.
+\item How do the chosen drugs change as $\lambda$ goes from 0 (``the $k$ drugs closest to AD'') upward?
+\item Exploratory only: if the pipeline reviews \cite{cummings2025pipeline,cummings2026pipeline} list any drug pairs being tested together in AD trials, where do those pairs rank? There are too few such pairs for statistics.
+\end{itemize}
+
+\subsection{Recommended figures and tables}
+
+\begin{description}[leftmargin=1.1cm,style=sameline]
+\item[F1] Pipeline diagram (modules, files, what runs where).
+\item[F2] Exact search: GPU speedup over CPU vs.\ $n$, one line per $k$.
+\item[F3] SA throughput (steps/s) vs.\ number of chains, scalar/AVX2/GPU v1/GPU v2, log--log.
+\item[F4] SA one-chain time and AVX2 speedup vs.\ $n$, with the share of accepted steps marked.
+\item[F5] SA time to answer vs.\ $n$ on the three platforms.
+\item[F6] QAOA: optimum share and valid share vs.\ depth $p$, one line per $n$.
+\item[F7] QAOA: valid share vs.\ penalty size $A$.
+\item[F8] Where the time goes: stacked bar per pipeline stage.
+\item[F9] Chosen AD drugs vs.\ $\lambda$ (heat map of how often each drug is chosen).
+\item[T1] Problem summary ($n$, $k$, share of nonzero $P$, $\binom{n}{k}$, best energy).
+\item[T2] Sequential vs.\ parallel timing table (required by the course).
+\item[T3] Test results T1--T12 (pass/fail).
+\item[T4] Top AD combinations with sources and caveats.
+\end{description}

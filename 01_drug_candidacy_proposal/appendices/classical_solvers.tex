@@ -1,0 +1,126 @@
+\section{Classical Solver Designs}
+\label{app:classical}
+
+This appendix is written for Members 2 and 3. It assumes C++ and x86 assembly, but no background in optimization. There are two algorithms (exact search and simulated annealing), and each is run in more than one way (sequential, SIMD, GPU). Keep these two ideas separate: ``AVX2'' and ``CUDA'' are not algorithms; they are ways of running the same algorithm.
+
+\subsection{What every solver reads and writes}
+
+\begin{itemize}
+\item \textbf{Reads} the problem file (\Cref{app:data}): $n$, $k$, $\lambda$, the rewards $w$ (length $n$), the penalty table $P$ ($n\times n$), and integer copies of both for deterministic mode. $P$ is stored \emph{column by column}, each column padded to a multiple of 8 entries and 32-byte aligned, so a column can be read with aligned \texttt{ymm} loads.
+\item \textbf{Keeps} the current combination as two arrays: \texttt{in[k]} (chosen drugs) and \texttt{out[n-k]} (the rest), plus a position map so a swap takes $O(1)$ time.
+\item \textbf{Writes} one record per run: the best combination (sorted drug indices), its energy as computed by the solver, its energy recomputed by one shared reference function (``the judge''), the seed, counters, and timings. If the two energies disagree, the run is marked invalid.
+\end{itemize}
+
+\subsection{Exact search}
+
+\begin{plainwords}
+Exact search simply tries every combination of $k$ drugs and keeps the best. For $n=24$ and $k=3$ there are only 2{,}024 combinations; for $n=1024$ and $k=3$ there are about 179 million, still fine for a GPU. It is the ``answer key'' that every other solver is graded against.
+\end{plainwords}
+
+\paragraph{Numbering the combinations.} List all $k$-drug combinations in dictionary order, e.g.\ for $n=5$, $k=3$: $\{0,1,2\},\{0,1,3\},\{0,1,4\},\{0,2,3\},\dots$, and number them $0,1,2,\dots$. A standard method (the ``combinatorial number system'') turns a number back into its combination, so each thread can jump straight to the start of its slice.
+
+\paragraph{Walking a slice.} Each thread scores its first combination in full, then moves to the next one in dictionary order. Usually only the last drug changes, so the thread keeps the partial energy of the first $k-1$ drugs and recomputes only the end. It remembers its best energy, the number of that combination, and how many combinations tied with it.
+
+\paragraph{Combining.} A warp-level minimum (using \texttt{\_\_shfl\_down\_sync}), then a block-level minimum in shared memory, then a final minimum over blocks on the CPU. The sequential C++ version runs the same code in one loop.
+
+\paragraph{When to use it.} Whenever $\binom{n}{k}$ is small enough to finish within the time budget. The actual speed on the GTX 1660 is measured in Week 8 \todo{measure}.
+
+\subsection{Simulated annealing (SA) with swap moves}
+
+\begin{plainwords}
+SA starts from a random team of $k$ drugs. At each step it picks one drug on the team and one drug off the team and asks: ``would swapping them lower the energy?'' If yes, it swaps. If no, it \emph{sometimes} swaps anyway, with a probability that shrinks over time. Early on (``high temperature'') it wanders freely; later (``low temperature'') it only accepts improvements. The occasional uphill move lets it escape bad local choices. Running many independent searches (``chains'') and keeping the best answer is what makes it parallel.
+\end{plainwords}
+
+\paragraph{The helper array $g$.} Re-scoring the whole team after every proposed swap would be slow. Instead, every chain keeps, for every drug $v$ (on or off the team),
+\begin{equation}
+g_v=-w_v+\lambda\sum_{l\in\Sel}P_{vl},
+\end{equation}
+which is ``how much the energy would change if drug $v$ joined the current team.'' With it, swapping team member $i$ out and outsider $j$ in changes the energy by
+\begin{equation}
+\Delta E=g_j-g_i-\lambda P_{ij}.
+\end{equation}
+This is three memory reads and two subtractions, whatever $n$ is. (The $-\lambda P_{ij}$ corrects for the fact that $g_j$ counted an overlap with $i$, who is leaving.) After an accepted swap, every $g_v$ changes by $\lambda(P_{vj}-P_{vi})$:
+\begin{equation}
+g\leftarrow g+\lambda P_{:,j}-\lambda P_{:,i},
+\end{equation}
+which is an add and a subtract over two whole columns of the table. This is the line that SIMD and the GPU speed up.
+
+\begin{algorithm}[ht]
+\caption{Swap-move SA, one chain (the same logic on every platform)}
+\label{alg:sa}
+\begin{algorithmic}[1]
+\State pick a random starting team of $k$ drugs; compute $g$; $E\gets$ energy of the team
+\For{sweep $s=0,\dots,S-1$} \Comment{temperature $T_s$ read from a table}
+  \For{$q=1,\dots,n$} \Comment{one sweep $=n$ proposed swaps}
+    \State $(r_0,r_1,r_2,\cdot)\gets\textsc{Philox}(\text{seed},\ \text{chain},\ \text{step})$ \Comment{four random 32-bit numbers}
+    \State $i\gets \texttt{in}[(r_0\cdot k)\gg 32]$;\quad $j\gets \texttt{out}[(r_1\cdot (n-k))\gg 32]$
+    \State $\Delta E\gets g_j-g_i-\lambda P_{ij}$
+    \If{$\Delta E\le 0$ \textbf{or} $\Delta E < T_s\cdot L[r_2\gg 20]$} \Comment{$L$: shared table of $-\ln u$ values}
+      \State $g\gets g+\lambda(P_{:,j}-P_{:,i})$ \Comment{the vectorized step}
+      \State swap $i$ and $j$ between \texttt{in} and \texttt{out};\quad $E\gets E+\Delta E$
+      \State \textbf{if} $E<E_{\text{best}}$ \textbf{then} save $E_{\text{best}}$ and \texttt{in}
+    \EndIf
+  \EndFor
+\EndFor
+\State \Return $E_{\text{best}}$, best team, counters
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Temperatures and stopping.} Temperatures fall geometrically from $T_0$ to $T_1$ over $S$ sweeps: $T_s=T_0(T_1/T_0)^{s/(S-1)}$. $T_0$ is chosen so that about 80\% of uphill steps are accepted at the start, and $T_1$ so that about 0.1\% are at the end; Member 1 computes both once per problem and stores them in the settings file. A run stops after $S$ sweeps, or, in time-to-answer tests, as soon as it reaches the known best energy.
+
+\paragraph{Chains.} $R$ independent chains, each with its own chain number, so each draws different random numbers. The run's answer is the best over all chains. Chains never talk to each other.
+
+\subsection{Random numbers and deterministic mode}
+
+Philox \cite{salmon2011parallel} is a function: give it a key (the run seed) and a counter (chain number, step number), and it returns four random 32-bit numbers. Because it has no hidden state, the 1{,}000th step of chain 7 gets the same numbers on the CPU and the GPU, no matter which thread runs it or in what order. It is written once in a header file used by all versions.
+
+In \textbf{deterministic mode}, $w$, $\lambda P$, $g$, $E$ and the temperatures are 32-bit integers, and the acceptance test compares $\Delta E$ with $T_s$ times an entry of a 4{,}096-entry integer table $L$ of $-\ln u$ values (computed in 64-bit to avoid overflow). Every decision is then pure integer arithmetic on identical inputs, so the scalar, AVX2 and CUDA versions must make \emph{exactly} the same accept/reject choices. Test T7 (\Cref{app:tests}) compares the first million decisions of 64 chains. If they differ, there is a bug, and the first differing step shows where. A floating-point mode is kept for comparison.
+
+\subsection{AVX2 version (Member 3)}
+
+The proposal and $\Delta E$ stay scalar. The update of $g$ is a loop over $n_{\text{pad}}$ integers reading two columns of the table:
+\begin{lstlisting}
+; void g_update_i32(int32_t* g, const int32_t* col_j, const int32_t* col_i, size_t n_pad)
+; rdi = g, rsi = lambda*P[:,j], rdx = lambda*P[:,i], rcx = n_pad (multiple of 32)
+.loop: vmovdqa ymm0, [rdi]        ; load 8 x int32 of g
+       vpaddd  ymm0, ymm0, [rsi]  ; + lambda*P[:,j]
+       vpsubd  ymm0, ymm0, [rdx]  ; - lambda*P[:,i]
+       vmovdqa [rdi], ymm0        ; store
+       ; ... repeat for ymm1..ymm3 at offsets 32, 64, 96 (unroll x4) ...
+       add rdi, 128
+       add rsi, 128
+       add rdx, 128
+       sub rcx, 32
+       jnz .loop
+       vzeroupper
+       ret
+\end{lstlisting}
+The floating-point version uses \texttt{vsubps} and \texttt{vaddps} (or \texttt{vfmadd231ps}). The same routine is reused to compute $g$ at the start of a run.
+
+\paragraph{What to expect.} Rejected steps do no vector work, so the overall SA speedup is lower than the speedup of the loop itself; for large $n$ the loop is limited by memory bandwidth (three arrays streamed). Both are measured and explained, not assumed.
+
+\paragraph{Fair comparison.} The scalar baseline is compiled with \texttt{-O2} and \texttt{-fno-tree-vectorize} so the compiler does not secretly vectorize it; a normal \texttt{-O3 -march=native} build is reported next to it. All main comparisons are single-threaded.
+
+\subsection{CUDA version (Member 2)}
+
+Start with v1. It is a plain translation of \Cref{alg:sa} and is enough for the course. Do v2 only after v1 passes test T7.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{2.3cm}X>{\raggedright\arraybackslash}p{2.8cm}}
+\toprule
+Kernel & How work is mapped & Synchronization \\
+\midrule
+\texttt{exact\_search} & One thread per slice of combination numbers; $w$ and $P$ in global memory (for $n\le 64$, $P$ copied into shared memory first). & Warp and block minimum; final minimum on the CPU. \\
+\texttt{sa\_v1} (thread per chain) & Thread $t$ runs chain $t$ exactly as in \Cref{alg:sa}. Its $g$, \texttt{in}, \texttt{out} live in global memory, laid out chain-interleaved ($g[v\cdot R + t]$) so that neighboring threads read neighboring addresses. & None. \\
+\texttt{sa\_v2} (warp per chain) & 32 threads share one chain; 4 chains per 128-thread block. $g$, \texttt{in}, \texttt{out} in shared memory (8 KB per chain at $n=2048$). Lane 0 draws the random numbers and decides; the decision is sent to the other lanes with \texttt{\_\_shfl\_sync}; on accept, all 32 lanes update $g$ together, lane $\ell$ handling entries $\ell,\ell+32,\dots$, so reads of $P$'s columns are coalesced. & \texttt{\_\_syncwarp} only. \\
+\bottomrule
+\end{tabularx}
+\caption{CUDA kernels.}
+\label{tab:kernels}
+\end{table}
+
+\paragraph{What to expect.} v1 has no idle threads, but each thread's $O(n)$ update touches memory far from its neighbors' (unless the interleaved layout works well). v2 reads memory efficiently, but 31 of 32 lanes sit idle on every \emph{rejected} step, and most late steps are rejected. Which one is faster depends on $n$; finding the crossover is one of the results (\Cref{app:eval}). In both, the speedup comes from running thousands of chains, not from making one chain faster.
+
+\paragraph{Three ways to measure speed.} (a) \emph{Latency}: time for one chain to finish, on each platform. (b) \emph{Throughput}: proposed steps per second with $R$ chains, for $R\in\{1,64,512,4096,16384\}$. (c) \emph{Time to answer}: time until any chain reaches the exact best energy, with each platform using the number of chains that suits it best. The GPU should lose (a) and win (b); (c) says which is faster in practice.

@@ -1,0 +1,70 @@
+\section{Problem Statement}
+\label{sec:problem}
+
+\subsection{Problem}
+
+Network proximity can shortlist AD drug candidates, and complementary exposure tells us what a good pair looks like. Turning this into a recommended \emph{combination} of $k$ drugs is a search problem whose size grows as $\binom{n}{k}$. Three questions are open: how to turn closeness, overlap and combination size into one score without inventing biological numbers; how much one search algorithm gains from SIMD and from a GPU, and why; and how well a quantum algorithm (QAOA), simulated on a GPU, finds the best combination compared with the exact answer.
+
+\subsection{Proposed solution}
+
+We build the system as five modules. Each module has fixed inputs and outputs, so team members can build and test them separately (\Cref{tab:modules}). Modules 1--4 are the graded core; Module 5 is the research extension.
+
+\begin{table}[H]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.0cm}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{2.2cm}}
+\toprule
+Module & Input & Output & Runs on \\
+\midrule
+1. Candidate preparation & Interactome, drug--target list, AD genes, candidate list; \emph{or} the sister project's table & Candidate table (targets, $z_i$) and a shortlist of $n$ drugs & CPU (Python) \\
+2. Problem construction & Shortlist, network distances & Rewards $w_i$, penalties $P_{ij}$, QUBO and Ising files & CPU (Python) \\
+3. Exact search & $w$, $P$, $k$ & The best combination, how many combinations tie for best & CPU and GPU \\
+4. Simulated annealing & $w$, $P$, $k$, settings & Best combination per run, run statistics, timings & CPU scalar, AVX2, GPU \\
+5. QAOA (extension) & Ising file & Sampled combinations and their scores & GPU (CUDA-Q + cuStateVec) \\
+\bottomrule
+\end{tabularx}
+\caption{Pipeline modules. Every solver reads the same problem file and writes the same result format (\Cref{app:data}).}
+\label{tab:modules}
+\end{table}
+
+\subsection{Research questions and hypotheses}
+
+\begin{description}[leftmargin=0.8cm,style=nextline]
+\item[RQ1 (main): How much do SIMD and the GPU help?] How do sequential C++, AVX2 and CUDA versions of the \emph{same} simulated-annealing algorithm compare in speed, as the number of candidates $n$ grows? We measure the time for one search chain, the number of steps per second when many chains run at once, and the time until the exact best answer is found.\\
+\emph{Hypothesis:} The GPU wins once enough independent chains run to keep it busy (hundreds or more). AVX2 wins for a single chain. Inside a chain, the speedup is limited because only \emph{accepted} steps do the vectorized array update, and late in the search most steps are rejected.
+\item[RQ2 (main): Is the scoring function right?] Does our QUBO always pick a valid combination of exactly $k$ drugs, equal to the best combination found by exact search, and how does the overlap dial $\lambda$ change which drugs are chosen?\\
+\emph{Hypothesis:} With the penalty weight set above the bound we prove in \Cref{app:formulation}, the QUBO and exact answers always agree. As $\lambda$ grows, the chosen combinations move from ``the $k$ drugs closest to AD'' toward complementary combinations.
+\item[RQ3 (extension): How good is QAOA?] On instances small enough to solve exactly, how often does simulated QAOA return the best combination, how many of its answers are valid $k$-drug combinations, and how does this change with circuit depth $p$ and problem size $n$?\\
+\emph{Hypothesis:} Most of QAOA's answers will be invalid, because only a tiny share of all yes/no patterns have exactly $k$ ones ($\binom{n}{k}/2^n$; 0.1\% at $n=20$, $k=3$). Quality will improve with $p$ but remain well below exact search.
+\item[RQ4 (supporting): Where does the time go?] How is total run time split between data preparation, problem construction, solving and checking? Answered from timing logs at no extra cost.
+\end{description}
+
+RQ1 and RQ2 are the course core and do not depend on the quantum part. RQ3 is the main research question for a possible conference paper.
+
+\subsection{Objectives}
+
+\textbf{General objective.} To build a checked scoring function for AD drug combinations and compare exact, SIMD, GPU and simulated-quantum ways of finding the best combination.
+
+\textbf{Specific objectives.}
+\begin{enumerate}
+\item Build a reproducible candidate table and shortlist from public data, recording where every number comes from.
+\item Build the QUBO and Ising files and prove, then test, that they give the right answer.
+\item Implement exact search on CPU and GPU and confirm they agree.
+\item Implement one simulated-annealing algorithm in sequential C++, AVX2 assembly and CUDA; show that all three make identical decisions; compare their execution times.
+\item Run QAOA in CUDA-Q on the GPU simulator and measure its answers against the exact search.
+\end{enumerate}
+
+\subsection{Scope and limitations}
+
+\begin{itemize}
+\item \textbf{Public data only.} No patient data.
+\item \textbf{Hypotheses, not recommendations.} A high-scoring combination is a computer-generated idea. It is not evidence that the combination is effective, synergistic or safe.
+\item \textbf{One mid-range GPU.} A GeForce GTX 1660 with 6 GB. This limits the quantum simulation to about 28 qubits (one qubit per drug). It does not limit the classical solvers at our sizes.
+\item \textbf{No quantum speedup is claimed.} The quantum computer is simulated, and at these sizes exact search is fast. The quantum part measures answer quality only.
+\item \textbf{Weak biological validation.} Very few AD drug combinations have trial results, so we check whether chosen combinations follow the complementary-exposure pattern, not whether they work.
+\item \textbf{Cut for time.} Safety and side-effect data, splitting large problems into QAOA-sized pieces, a constraint-preserving QAOA variant, and several extra performance experiments were left out. \Cref{app:limitations} lists each one, why it was cut, and how it would be added later.
+\end{itemize}
+
+\subsection{Significance}
+
+For the course, the project shows one algorithm on three kinds of hardware and explains where data-level parallelism helps and where a step-by-step dependency limits it. For research, it gives a realistic, biology-based test problem for quantum optimization, with exact answers to compare against, and the first QAOA study of AD drug combinations that we are aware of.
