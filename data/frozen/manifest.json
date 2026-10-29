@@ -1,0 +1,68 @@
+{
+  "sources": [
+    {
+      "name": "clinicaltrials_ad_interventions",
+      "path": "data/raw/clinicaltrials_ad_interventions.json",
+      "url": "https://clinicaltrials.gov/api/v2/studies",
+      "sha256": "3cb41a09f64844ff2a50da1942e193709e1147aaac0415170543d649c46885dc",
+      "fetched_at": "2026-10-29T08:22:24Z",
+      "license_note": "ClinicalTrials.gov, US government work, public domain."
+    },
+    {
+      "name": "dgidb_donepezil",
+      "path": "data/raw/dgidb_donepezil.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "85626ca2d3e5c7a91507536307d6894d85c2eb8418f5c8997829623155fb6558",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_rivastigmine",
+      "path": "data/raw/dgidb_rivastigmine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "ea84899e7f36b7a2208ee82b793d5c8ea4577c6c5c35e999f62edf56b4dbeec5",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_galantamine",
+      "path": "data/raw/dgidb_galantamine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "81338b723cb92ee17c332ac3322cf91f42bd6f009a7bf47e74e38654cabc5426",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_memantine",
+      "path": "data/raw/dgidb_memantine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "bb0481ba7974902cff0835542191e22d2baf5d04bcb9b0361ff3977dfed8e1cf",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_sildenafil",
+      "path": "data/raw/dgidb_sildenafil.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "a4641ff87b608528f7a45cf1e158e8035a791e0c1f66e3067f6be870e1254fa1",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "ad_module",
+      "path": "data/raw/ad_module.json",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+      "sha256": "2fbda2d5a8b64d1a3ce41ff4900bb8f898b8b294bc1ce6aa68e0d6515659461b",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "NCBI Gene, public domain. Curated gene list -- see docs/modules/data-collectors.md."
+    },
+    {
+      "name": "interactome_string",
+      "path": "data/raw/interactome_string.tsv",
+      "url": "https://string-db.org/api/tsv/network",
+      "sha256": "459611a86fbd30a9b36231f7b917c23a066d483a67da8f0ed30d6b73a319504d",
+      "fetched_at": "2026-10-29T08:44:44Z",
+      "license_note": "STRING, CC BY 4.0. Subnetwork around the requested genes -- see docs/modules/data-collectors.md."
+    }
+  ]
+}

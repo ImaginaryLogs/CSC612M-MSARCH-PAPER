@@ -1,0 +1,24 @@
+[project]
+name = "ad-combo"
+version = "0.1.0"
+description = "AD drug-combination selection: C/AVX2/CUDA/CUDA-Q annealing solvers, orchestrated from Python."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "requests>=2.31",
+    "networkx>=3.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "jupyter>=1.0",
+]
+
+# No [build-system] yet: the Python side (python/) is run directly with
+# `uv run python/main.py`, not installed as a package. Once the C++/CUDA
+# module lands (include/module.hpp + src/module_1.cpp as a pybind11
+# extension), this file grows a [build-system] section using
+# scikit-build-core, so `uv sync` compiles it automatically. Until then,
+# module_interface.py's native import is expected to fail -- see its TODO.
