@@ -46,15 +46,19 @@ class RunResultsMessage:
 
 def _native_module():
     """!
-    @brief TODO: becomes `import module_1` (the pybind11 extension) once built.
+    @brief Imports module_1, the pybind11 extension built from include/module.hpp + src/module_1.cpp.
     @return The native extension module.
     @see docs/modules/module-interface.md
     """
-    raise NotImplementedError(
-        "the native module (pybind11 extension built from include/module.hpp "
-        "+ src/module_1.cpp) does not exist yet -- see the TODO at the top "
-        "of this file"
-    )
+    try:
+        import module_1
+    except ImportError as exc:
+        raise NotImplementedError(
+            "module_1 (the pybind11 extension) is not built -- run "
+            "scripts/build_native.sh, which compiles it and copies it next to "
+            "python/main.py"
+        ) from exc
+    return module_1
 
 
 def run_module(instance, config: ModuleConfig) -> RunResultsMessage:

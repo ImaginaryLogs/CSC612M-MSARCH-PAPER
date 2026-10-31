@@ -14,11 +14,14 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "jupyter>=1.0",
+    "pybind11>=3.1.0",
 ]
 
 # No [build-system] yet: the Python side (python/) is run directly with
-# `uv run python/main.py`, not installed as a package. Once the C++/CUDA
-# module lands (include/module.hpp + src/module_1.cpp as a pybind11
-# extension), this file grows a [build-system] section using
-# scikit-build-core, so `uv sync` compiles it automatically. Until then,
-# module_interface.py's native import is expected to fail -- see its TODO.
+# `uv run python/main.py`, not installed as a package. The native side
+# (include/module.hpp + src/module_1.cpp, a pybind11 extension) is built by
+# scripts/build_native.sh, which compiles it with CMake and copies the .so
+# next to python/main.py so `import module_1` just works. Folding that into
+# `uv sync` (via scikit-build-core) is a possible later improvement, not
+# done yet -- run scripts/build_native.sh once after cloning, and again
+# after editing any src/*.cpp.
