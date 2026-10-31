@@ -1,0 +1,27 @@
+[project]
+name = "ad-combo"
+version = "0.1.0"
+description = "AD drug-combination selection: C/AVX2/CUDA/CUDA-Q annealing solvers, orchestrated from Python."
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "requests>=2.31",
+    "networkx>=3.2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "jupyter>=1.0",
+    "pybind11>=3.1.0",
+]
+
+# No [build-system] yet: the Python side (python/) is run directly with
+# `uv run python/main.py`, not installed as a package. The native side
+# (include/module.hpp + src/module_1.cpp, a pybind11 extension) is built by
+# scripts/build_native.sh, which compiles it with CMake and copies the .so
+# next to python/main.py so `import module_1` just works. Folding that into
+# `uv sync` (via scikit-build-core) is a possible later improvement, not
+# done yet -- run scripts/build_native.sh once after cloning, and again
+# after editing any src/*.cpp.
