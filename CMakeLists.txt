@@ -35,7 +35,7 @@ endfunction()
 
 add_sa_scalar(sa_scalar)
 
-# The same core with the drift check compiled in (paper test T9): every 10,000 accepted
+# The same core with the drift check compiled in (paper test T9): every 1,000 accepted
 # swaps it rebuilds g and E from scratch and aborts if the running values have drifted.
 add_sa_scalar(sa_scalar_checked)
 target_compile_definitions(sa_scalar_checked PUBLIC SA_CHECK_G)

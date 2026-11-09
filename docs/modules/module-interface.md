@@ -8,11 +8,12 @@ Built as a pybind11 extension module from `include/module.hpp` + `src/module_1.c
 
 - `include/module.hpp` — the interface every backend implements (`Instance`/`Config`/`Result` structs, `energy()`, and one `solve_*()` per backend)
 - `src/module_1.cpp` — built so far: `solve_exact()`, the `exact_cpu` brute-force oracle (tries every k-combination, `O(C(n,k) * k^2)`), bound as `module_1.solve(instance, config)`
-- `src/module_2_avx.cpp` — TODO: AVX2 simulated annealing (NASM kernel + this wrapper)
+- `src/module_2.cpp` — built: the `scalar` simulated-annealing backend, bound as `module_2.solve(instance, config)`. It is a thin adapter over the C core in `include/sa_scalar.h` + `src/sa_scalar.c`, and needs `ModuleConfig.T0`/`T1`
+- AVX2 simulated annealing (NASM kernel + wrapper) — TODO
 - `cuda/module_3.cu` — TODO: CUDA simulated annealing
 - CUDA-Q stays pure Python — it already has a clean API, no C++ needed
 
-`module_1.solve()` raises `RuntimeError` for any platform other than `exact_cpu` (scalar/avx2/cuda SA, `exact_cuda`) rather than returning fake data, since those backends don't exist yet. If `module_1` isn't built at all, `_native_module()` raises a clear `NotImplementedError` pointing at `scripts/build_native.sh` instead of a bare `ImportError`.
+`module_1.solve()` raises `RuntimeError` for any platform other than `exact_cpu`, and `module_2.solve()` for any platform other than `scalar`, rather than returning fake data. Platforms with no module yet (`avx2`, `cuda`, `exact_cuda`) raise `NotImplementedError` from `_native_module()`. If `module_1` isn't built at all, `_native_module()` raises a clear `NotImplementedError` pointing at `scripts/build_native.sh` instead of a bare `ImportError`.
 
 `exact_cpu` is also the oracle `tests/test_module_1.py` cross-checks against `validation.Validator.brute_force()` (the independent Python implementation) — useful both as a build/interop smoke test and, once SA lands, as ground truth to grade it against (together with `OrchestratorConfig.brute_force_check`).
 

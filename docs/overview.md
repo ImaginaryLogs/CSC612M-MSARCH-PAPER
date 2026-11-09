@@ -32,7 +32,7 @@ data_collectors.py  ->  Instance  ->  module_interface.py (per platform)  ->  va
 | Platform | What it is | Status |
 |---|---|---|
 | `exact_cpu` | C++ brute force: every `k`-combination, `O(C(n,k)*k^2)` — the verified oracle every other platform is checked against | **Built** (`include/module.hpp` + `src/module_1.cpp`) |
-| `scalar` | Simulated annealing (swap moves), plain scalar C++ — the reference the SIMD/GPU versions must match decision-for-decision in deterministic mode | Planned next — see `docs/TODO.md` |
+| `scalar` | Simulated annealing (swap moves), plain scalar C (float, Philox-seeded) — the reference the SIMD/GPU versions are compared with, decision for decision via `ModuleConfig.trace_steps` | **Built** (`include/sa_scalar.h` + `src/sa_scalar.c`, bound by `src/module_2.cpp`) |
 | `avx2` | The same SA loop, inner update written in NASM assembly (`ymm` registers), with a C++ intrinsics twin as a cross-check | Planned next |
 | `cuda` | SA with many independent chains, one thread per chain (v1), then one warp per chain (v2) | Planned after Milestone 2 |
 | `qaoa` | Standard QAOA on CUDA-Q's GPU state-vector simulator, penalty-encoded `k`-exactly constraint | Planned after Milestone 2 |
