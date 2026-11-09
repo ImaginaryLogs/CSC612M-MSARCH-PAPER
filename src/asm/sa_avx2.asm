@@ -1,57 +1,47 @@
 ; =============================================================================
-; sa_avx2.asm -- AVX2 kernels for swap-move simulated annealing (include/sa_avx2.h)
+; sa_avx2.asm -- AVX2 kernels for swap-move simulated annealing
 ;
-; Windows x64 only. Assembler: NASM 2.15 or newer (tested with NASM 3.02):
-;   nasm -f win64 src/asm/sa_avx2.asm -o sa_avx2.obj
-; CMake does this for you (enable_language(ASM_NASM) in CMakeLists.txt).
+; Windows x64 only. Assembler: NASM 2.15 or newer (tested with NASM 3.02)
 ;
-; The algorithm is the one in src/sa_scalar.c, step for step; read that file first. The
-; float operations are the same ones in the same order (no FMA, no reassociation), so
-; this code makes exactly the decisions the scalar code makes for the same seed. Where
-; the scalar code does one thing at a time, this code does eight, one per 32-bit lane of
-; a 256-bit ymm register:
+; Fundamentally, the algorithm is the one in src/sa_scalar.c, step for step.
+; The float operations are the same ones in the same order, so
+; this code should exactly make the decision the scalar code makes for the same seed.
+; We show that while the scalar code does one thing at a time, 
+; AVX2 does eight, one per 32-bit lane of a 256-bit ymm register:
 ;
 ;   scalar sa_scalar.c                       here
 ;   ------------------------------------     ---------------------------------------------
 ;   g_update: g[v] += P_j[v] - P_i[v]        G_UPDATE: 8 drugs per vsubps/vaddps,
 ;     one drug per iteration                   4 ymm per iteration (32 drugs)
+;
 ;   compute_g: one drug, one team member     refresh_core: 32 drugs per pass over the team
+;
 ;   draw_random: one Philox block per step   philox8_core: 8 blocks (8 steps) per call,
 ;                                              structure-of-arrays, vpmuludq for the
 ;                                              32x32->64 multiplies
+;
 ;   random_below: one 64-bit multiply        MULHI_U32: 8 high halves at once
+;
 ;   neg_ln_u[r >> 20] * T: one load          vpsrld + vgatherdps + vmulps, 8 at once
+;
 ;   propose_swap + should_accept: one step   speculative pass: 8 proposals at once with
 ;                                              gathers (order -> i, j; g[i], g[j];
 ;                                              lam_p[i][j]), 8 compares, vmovmskps +
 ;                                              tzcnt to jump to the first accepted one
+;
 ;   memcpy of the best team                  COPY_TEAM: vmovdqu + vpmaskmovd tail
 ;
-; Why judging 8 proposals at once is still exact: the random numbers of a step depend
-; only on (seed, chain, step), never on the state, so all 8 can be drawn up front. The
-; proposals are then judged against the current state. Every lane before the first
-; accepted one would have been rejected by the scalar loop too (nothing changed in
-; between), so they are skipped together. The first accepted lane is committed exactly
-; as the scalar loop commits it, and the lanes after it are judged against the new
-; state. Late in the anneal most proposals are rejected and one pass decides all 8.
-; Early on, when most are accepted, re-gathering after every commit would be slower
-; than plain loads, so sa_avx2_run_chain switches between the two (see there).
 ;
-; Calling convention: Microsoft x64. Arguments arrive in rcx, rdx, r8, r9. Every
-; function saves the callee-saved registers it touches (rbx, rbp, rsi, rdi, r12-r15,
-; xmm6-xmm15) and ends with vzeroupper. The functions have no unwind tables
-; (.pdata/.xdata): none of them can raise, but a debugger cannot walk the stack
-; through them.
-; =============================================================================
+;
 
 bits 64
 default rel
 
 %ifnidn __OUTPUT_FORMAT__, win64
-    %error "sa_avx2.asm is Windows x64 only: assemble with nasm -f win64"
+    %error "sa_avx2.asm is Windows x64 only"
 %endif
 
-; Byte offsets of the SaAvx2Chain fields (include/sa_avx2.h; checked by src/sa_avx2.c).
+; Byte offsets of the SaAvx2Chain fields.
 %define C_LAMP      0       ; const float *lam_p      n rows x stride, aligned
 %define C_W         8       ; const float *w          stride, aligned
 %define C_TEMPS     16      ; const float *temps      one per sweep
@@ -74,31 +64,24 @@ default rel
 REFRESH_EVERY_ACCEPTS equ 1000   ; same as sa_scalar.c
 ACCEPT_TABLE_SHIFT    equ 20     ; 32 - 12 bits of L-table index
 
-; vcmpps predicates (ordered, quiet: a NaN compares false, as in C)
+; vcmpps predicates since a NaN compares false in all cases, we can use the same predicate for < and <=
 CMP_LT_OQ equ 0x11
 CMP_LE_OQ equ 0x12
 
-; ---------------------------------------------------------------------------
-; Constants
-; ---------------------------------------------------------------------------
 section .rdata rdata align=32
 
+; RNG Generator constants for Philox 4x32-10, see src/philox.c
 align 32
 LANE_INDEX: dd 0, 1, 2, 3, 4, 5, 6, 7
 SIGN_BIT:   times 8 dd 0x80000000        ; float sign / unsigned-compare bias
 PHILOX_M0:  times 8 dd 0xD2511F53        ; Philox4x32 multipliers
 PHILOX_M1:  times 8 dd 0xCD9E8D57
-PHILOX_W0:  times 8 dd 0x9E3779B9        ; Philox4x32 key increments (Weyl)
+PHILOX_W0:  times 8 dd 0x9E3779B9        ; Philox4x32 key increments (Golden-Ratio Weyl)
 PHILOX_W1:  times 8 dd 0xBB67AE85
-TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4*r
-            times 8 dd 0                 ; to get a mask of r leading ones
+TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4*r to get a mask of r leading ones
+            times 8 dd 0                 
 
-; ---------------------------------------------------------------------------
-; Macros
-; ---------------------------------------------------------------------------
-
-; Saves / restores the low 128 bits of xmm6..xmm15, which Win64 callers expect kept.
-; %1 = 16-byte aligned address of a 160-byte save area.
+; saves / restores the low 128 bits of xmm6..xmm15
 %macro SAVE_XMM6_15 1
     vmovdqa [%1 + 0*16], xmm6
     vmovdqa [%1 + 1*16], xmm7
@@ -126,10 +109,9 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
 %endmacro
 
 ; MULHI_U32 dst, src, mul, tmp
-; dst[l] = (src[l] * mul[l]) >> 32 for the 8 unsigned 32-bit lanes: the vector form of
-; random_below(). vpmuludq multiplies only the even dwords, so the odd lanes are shifted
-; down, multiplied separately, and the two sets of high halves are blended back.
-; dst may equal src; tmp must differ from both. mul may be a register or memory.
+; dst[l] = (src[l] * mul[l]) >> 32 for the 8 unsigned 32-bit lanes: the vector form of random_below(). 
+; since vpmuludq multiplies only the even dwords, the odd lanes are shifted down to the even lanes, multiplied, and shifted back up to the odd lanes.
+
 %macro MULHI_U32 4
     vpsrlq      %4, %2, 32              ; odd lanes moved to even positions
     vpmuludq    %1, %2, %3              ; 64-bit products of the even lanes
@@ -138,10 +120,7 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
     vpblendd    %1, %1, %4, 0xAA        ; odd lanes: high half is already in place
 %endmacro
 
-; One Philox4x32 round on 8 blocks. In/out: ymm0..ymm3 = counter words c0..c3 (one
-; block per lane), ymm4/ymm5 = key words k0/k1. Clobbers ymm6..ymm8.
-;   p0 = M0 * c0, p1 = M1 * c2   (32 x 32 -> 64 bit)
-;   c0' = hi(p1) ^ c1 ^ k0,  c1' = lo(p1),  c2' = hi(p0) ^ c3 ^ k1,  c3' = lo(p0)
+; One Philox4x32 round on 8 blocks
 %macro PHILOX_ROUND 0
     vpsrlq      ymm6, ymm0, 32
     vpmuludq    ymm0, ymm0, [PHILOX_M0]     ; p0, even lanes
@@ -168,9 +147,8 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
 %endmacro
 
 ; BUILD_COUNTERS first, scratch
-; Counter words 0 and 1 for the 8 consecutive indices first .. first+7:
-;   ymm0 = lo(first + lane), ymm1 = hi(first + lane)   (64-bit carry handled per lane)
-; first is a 64-bit register (kept), scratch a 64-bit register. Clobbers ymm2.
+; initializes the 8 Philox counters for 8 steps, and the 8 keys for 8 steps
+; low 32-bit generator counter is the step number, high 32-bit counter is the chain_id, key is the seed
 %macro BUILD_COUNTERS 2
     vmovq        xmm1, %1
     vpbroadcastd ymm1, xmm1                 ; lo(first) in every lane
@@ -185,11 +163,10 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
     vpsubd       ymm1, ymm1, ymm2           ; + carry
 %endmacro
 
-; G_UPDATE g, row_j, row_i, bytes, off, end       (all 64-bit registers)
-; g[v] += row_j[v] - row_i[v] over `bytes` bytes (a multiple of 32; all three arrays
-; 32-byte aligned). Exactly the scalar g_update: t = row_j - row_i, then g + t.
-; Main loop: 4 ymm = 32 floats per iteration, so 4 independent load/sub/add/store
-; chains are in flight. Tail: one ymm at a time. Clobbers ymm0..ymm3, off and end.
+; G_UPDATE g, row_j, row_i, bytes, off, end (all 64-bit registers)
+; g[v] += row_j[v] - row_i[v] 
+; over `bytes` bytes (a multiple of 32; all three arrays 32-byte aligned).
+; function does what the C code does, but with 8 floats at a time, and with the offsets in bytes.
 %macro G_UPDATE 6
     mov         %6, %4
     and         %6, -128                    ; end of the 128-byte blocks
@@ -228,9 +205,8 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
 %%done:
 %endmacro
 
-; COPY_TEAM: best_team[0, k) = order[0, k). Needs r15 = chain, r12 = order.
-; 8 drugs per vmovdqu, then vpmaskmovd for the last k mod 8 (masked-off lanes are
-; neither read nor written). Clobbers rax, rdx, r10, r11, ymm0, ymm1.
+; COPY_TEAM: best_team[0, k) = order[0, k).
+; copies k int32_t values from order to best_team, using 8-wide AVX2 loads and stores.
 %macro COPY_TEAM 0
     mov         rdx, [r15 + C_BEST]
     mov         r10d, [r15 + C_K]
@@ -254,9 +230,7 @@ TAIL_MASK:  times 8 dd -1                ; load 8 dwords from TAIL_MASK + 32 - 4
 %%done:
 %endmacro
 
-; ---------------------------------------------------------------------------
 section .text
-; ---------------------------------------------------------------------------
 
 global sa_avx2_cpu_supported
 global sa_avx2_philox_x8
@@ -264,33 +238,28 @@ global sa_avx2_g_update
 global sa_avx2_refresh
 global sa_avx2_run_chain
 
-; ===========================================================================
-; int sa_avx2_cpu_supported(void)
-; 1 when CPUID reports AVX and AVX2 and the OS saves ymm state (OSXSAVE + XCR0 bits
-; 1 and 2), else 0. (tzcnt is also used; on a CPU without BMI1 it runs as bsf, which
-; gives the same answer for the nonzero inputs it gets here.)
-; ===========================================================================
+; check for avx2 support, returns 1 in rax if supported, 0 otherwise
 sa_avx2_cpu_supported:
     push        rbx
     xor         eax, eax
     cpuid
-    cmp         eax, 7                      ; leaf 7 needed for the AVX2 bit
+    cmp         eax, 7                      
     jb          .no
     mov         eax, 1
     xor         ecx, ecx
     cpuid
-    and         ecx, (1 << 27) | (1 << 28)  ; OSXSAVE, AVX
+    and         ecx, (1 << 27) | (1 << 28)  
     cmp         ecx, (1 << 27) | (1 << 28)
     jne         .no
     xor         ecx, ecx
-    xgetbv                                  ; XCR0 -> edx:eax
-    and         eax, 0x6                    ; xmm and ymm state enabled by the OS
+    xgetbv                                  
+    and         eax, 0x6                    
     cmp         eax, 0x6
     jne         .no
     mov         eax, 7
     xor         ecx, ecx
     cpuid
-    test        ebx, 1 << 5                 ; AVX2
+    test        ebx, 1 << 5                 
     jz          .no
     mov         eax, 1
     pop         rbx
@@ -300,29 +269,16 @@ sa_avx2_cpu_supported:
     pop         rbx
     ret
 
-; ===========================================================================
-; philox8_core (internal)
-; Philox4x32-10 on 8 blocks at once, one block per lane.
-; In:  ymm0..ymm3 = counter words c0..c3, ymm4/ymm5 = key words k0/k1 (broadcast)
-; Out: ymm0..ymm3 = the 4 output words of each block
-; Clobbers ymm4..ymm8. No memory writes, no GPRs.
-; ===========================================================================
 philox8_core:
     PHILOX_ROUND
 %rep 9
-    vpaddd      ymm4, ymm4, [PHILOX_W0]     ; the key changes a little between rounds
+    vpaddd      ymm4, ymm4, [PHILOX_W0]
     vpaddd      ymm5, ymm5, [PHILOX_W1]
     PHILOX_ROUND
 %endrep
     ret
 
-; ===========================================================================
-; void sa_avx2_philox_x8(uint64_t first_index, uint64_t chain_stream, uint64_t seed,
-;                        uint32_t out[32])
-; Lane l: counter {lo(first+l), hi(first+l), lo(chain_stream), hi(chain_stream)},
-; key {lo(seed), hi(seed)}. out[w*8 + l] = word w of lane l.
-; rcx = first_index, rdx = chain_stream, r8 = seed, r9 = out
-; ===========================================================================
+; generates a batch of 32 pseudo-random 32-bit integers, using the Philox4x32 algorithm, with 8-way parallelism.
 sa_avx2_philox_x8:
     sub         rsp, 56                     ; 48 bytes for xmm6..8, 16-byte aligned
     vmovdqa     [rsp], xmm6
@@ -354,27 +310,19 @@ sa_avx2_philox_x8:
     add         rsp, 56
     vzeroupper
     ret
+; 
 
-; ===========================================================================
-; void sa_avx2_g_update(float *g, const float *row_j, const float *row_i, int64_t count)
-; rcx = g, rdx = row_j, r8 = row_i, r9 = count
-; ===========================================================================
+
+; exposes for A += B - C
 sa_avx2_g_update:
     lea         r10, [r9*4]                 ; bytes
     G_UPDATE    rcx, rdx, r8, r10, r11, rax
     vzeroupper
     ret
 
-; ===========================================================================
-; refresh_core (internal): the vector compute_g plus team_energy of sa_scalar.c.
-; In: r15 = chain. Writes chain->g[0, stride) and chain->energy.
-; Clobbers rax, rcx, rdx, r8..r11, ymm0..ymm4; keeps everything else (run_chain keeps
-; its batch state in ymm9..ymm15 across this call).
-;
-;   g[v] = -w[v] + lam_p[team[0]][v] + lam_p[team[1]][v] + ...   (left to right, as the
-;   scalar sum; lam_p is symmetric, so row team[t] holds column team[t])
-;   E    = sum over a of ( -w[team[a]] + sum over b > a of lam_p[team[a]][team[b]] )
-; ===========================================================================
+; full state refesh for simulated annealing 
+; recomputes the gradient vector across all candidates using AVX2
+; recomputes the total scaler system energy using AVX2
 refresh_core:
     push        rbx
     push        rsi
@@ -468,9 +416,7 @@ refresh_core:
     pop         rbx
     ret
 
-; ===========================================================================
-; void sa_avx2_refresh(SaAvx2Chain *chain)
-; ===========================================================================
+wrapper for refresh core
 sa_avx2_refresh:
     push        r15
     mov         r15, rcx                    ; the chain
@@ -479,33 +425,8 @@ sa_avx2_refresh:
     vzeroupper
     ret
 
-; ===========================================================================
-; void sa_avx2_run_chain(SaAvx2Chain *chain)
-;
-; for sweep s:                               T = temps[s]
-;   for each batch of up to 8 proposals:     steps rbx .. rbx+count-1
-;     (1) Philox for the 8 steps             -> r0, r1, r2 per lane      (8-wide)
-;     (2) a = slot in the team, b = slot among the outsiders,
-;         thr = T * L[r2 >> 20]                                          (8-wide)
-;     (3) decide the proposals in order, committing each accepted one exactly as
-;         commit_swap() does. Two ways to decide, both exact:
-;         (3a) speculative pass: evaluate all 8 against the current state with
-;              gathers; vmovmskps + tzcnt find the first accepted lane m, and every
-;              lane before m is rejected with no further work. If none accepts, this
-;              one pass decides the whole batch.                         (8-wide)
-;         (3b) walk: evaluate the undecided lanes one at a time with scalar loads.
-;         A batch starts with (3a) when the previous batch accepted at most
-;         SPECULATE_MAX_LAST_ACCEPTS proposals (the common case once the anneal has
-;         cooled) and with (3b) otherwise. After a commit the rest of the batch is
-;         always walked: the state has just changed, and redoing the gathers (two
-;         gathers deep, ~50 cycles on the critical path) costs more than walking the
-;         few lanes that are left.
-;
-; Registers kept for the whole run:
-;   r15 chain   r14 lam_p   r13 g   r12 order   rbx step   rdi sweep   rsi q (in sweep)
-;   ymm9  = k (8 lanes)         ymm10 = stride (8 lanes)    ymm14 = chain_id (8 lanes)
-; ===========================================================================
 
+; stack frame memory layout of the SA Kernel
 SPECULATE_MAX_LAST_ACCEPTS equ 1
 
 ; Stack frame, offsets from the 32-byte aligned rsp
@@ -585,7 +506,7 @@ sa_avx2_run_chain:
     mov         dword [rsp + F_BATCH_ACC], 0
     mov         dword [rsp + F_P], 0
 
-    ; ---- (1) Philox(seed, STREAM_PROPOSAL, chain, step) for 8 steps ----
+    ; -Philox
     BUILD_COUNTERS rbx, rax                 ; ymm0, ymm1 = lo, hi of step + lane
     vmovdqa     ymm2, ymm14                 ; c2 = chain
     vpxor       ymm3, ymm3, ymm3            ; c3 = STREAM_PROPOSAL = 0
@@ -593,7 +514,7 @@ sa_avx2_run_chain:
     vmovdqa     ymm5, [rsp + F_K1]
     call        philox8_core                ; ymm0, ymm1, ymm2 = r0, r1, r2
 
-    ; ---- (2) slots and acceptance thresholds, 8 lanes ----
+    ; define slots and acceptance thresholds on 8 lanes
     MULHI_U32   ymm13, ymm0, ymm9, ymm6             ; a = (r0 * k) >> 32
     MULHI_U32   ymm12, ymm1, [rsp + F_NK], ymm6     ; (r1 * (n - k)) >> 32
     vpaddd      ymm12, ymm12, ymm9                  ; b = k + that
@@ -611,7 +532,7 @@ sa_avx2_run_chain:
     cmp         dword [rsp + F_LAST_ACC], SPECULATE_MAX_LAST_ACCEPTS
     ja          .walk
 
-    ; ---- (3a) speculative pass: all 8 proposals against the current state ----
+    ; speculative pass
     vpcmpeqd    ymm7, ymm7, ymm7
     vpxor       ymm0, ymm0, ymm0
     vpgatherdd  ymm0, [r12 + ymm13*4], ymm7         ; i = order[a]
@@ -651,7 +572,7 @@ sa_avx2_run_chain:
     vmovss      xmm3, [rsp + F_D + rcx*4]
     jmp         .commit
 
-    ; ---- (3b) walk: the undecided lanes one at a time ----
+    
 .walk:
     mov         ecx, [rsp + F_P]
 .walk_lane:

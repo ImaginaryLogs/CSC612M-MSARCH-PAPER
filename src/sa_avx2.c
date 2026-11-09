@@ -1,27 +1,18 @@
 /*
  * sa_avx2.c -- the C half of the AVX2 simulated annealing.
  *
- * The annealing itself (every proposal, accept test, commit and refresh) runs in
- * src/asm/sa_avx2.asm. This file does what happens once per run or once per chain:
- * argument checks, the memory layout the SIMD code needs, the temperature schedule,
- * the random starting team, and picking the best chain. It follows sa_scalar.c part by
- * part, and anything that can change a decision is computed exactly as it is there:
+ * The annealing itself  runs in * src/asm/sa_avx2.asm. This file does what happens once per run or once per chain such as
+ * argument checks, the memory layout the SIMD code needs, the temperature schedule, * the random starting team, and picking the best chain. It follows sa_scalar.c part by
+ * part, and anything computation is in avx2:
  *
- *   - the same float copies of w and lambda*P (lambda*P rounded once from double)
- *   - the same L table and the same float temperature per sweep
- *   - the same Philox counters: (seed; stream, chain, step)
- *   - the same float operations in the same order inside the kernels
+ *   - the float copies of w and lambda*P (lambda*P rounded once from double)
+ *   - the L table and the same float temperature per sweep
+ *   - the Philox counters: (seed; stream, chain, step)
+ *   - the float operations in the same order inside the kernels
  *
- * so for the same seed the two backends make identical accept/reject decisions.
+ * so for the same seed the two backends should make identical accept/reject decisions.
  *
- * What is different is the layout. Every row of lambda*P, and w and g, is padded with
- * zeros to a multiple of 8 floats and starts on a 32-byte boundary, so one row is read
- * with aligned ymm loads. lambda*P is symmetric, so row j is also column j, and the g
- * update streams two contiguous rows. The gathers index lambda*P with a signed 32-bit
- * element number, so n * stride has to fit in an int32 (n up to 46,336, which would
- * already be an 8.6 GB matrix).
- *
- * Windows x64 only, like the assembly it drives.
+ * Windows x64 only
  */
 #ifndef _WIN32
 #error "the AVX2 backend is Windows-only"
@@ -29,7 +20,7 @@
 
 #include "sa_avx2.h"
 
-#include <malloc.h> /* _aligned_malloc, _aligned_free */
+#include <malloc.h>
 #include <math.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -43,8 +34,6 @@ enum {
     STREAM_START = 1          /* Philox counter word 3 for the starting team */
 };
 
-/* The assembly reads SaAvx2Chain by fixed offsets (C_* in sa_avx2.asm). A mismatch
-   becomes a compile error here (negative array size) instead of a wrong answer. */
 #define SA_LAYOUT_CHECK(field, offset) \
     typedef char sa_layout_check_##field[(offsetof(SaAvx2Chain, field) == (offset)) ? 1 : -1]
 SA_LAYOUT_CHECK(lam_p, 0);
@@ -66,15 +55,10 @@ SA_LAYOUT_CHECK(chain_id, 108);
 SA_LAYOUT_CHECK(energy, 112);
 SA_LAYOUT_CHECK(best_energy, 116);
 
-/* 32-byte aligned memory (never a zero-byte request), freed with _aligned_free(). */
 static void *alloc_aligned(size_t bytes)
 {
     return _aligned_malloc(bytes > 0 ? bytes : ALIGNMENT, ALIGNMENT);
 }
-
-/* ------------------------------------------------------------------------- */
-/* Model: the inputs in the layout the kernels want (sa_scalar.c's Model)     */
-/* ------------------------------------------------------------------------- */
 
 typedef struct {
     int n;
@@ -96,7 +80,7 @@ static void model_destroy(Model *m)
     memset(m, 0, sizeof *m);
 }
 
-/* L[m] = -ln((m + 0.5) / 4096), as in sa_scalar.c. */
+/* L[m] = -ln((m + 0.5) / 4096), similar to sa_scalar.c. */
 static void build_accept_table(float *table)
 {
     for (int m = 0; m < ACCEPT_TABLE_SIZE; m++) {
@@ -125,7 +109,7 @@ static SaStatus model_create(const SaProblem *p, Model *m)
         model_destroy(m);
         return SA_ERR_NO_MEMORY;
     }
-    /* Every real entry is written below; only the padding needs zeros. */
+    /* every real entry is written below; only the padding needs zeros. */
     memset(m->w, 0, m->stride * sizeof *m->w);
     for (size_t i = 0; i < n; i++) {
         memset(m->lam_p + i * m->stride + n, 0, (m->stride - n) * sizeof *m->lam_p);
@@ -139,8 +123,7 @@ static SaStatus model_create(const SaProblem *p, Model *m)
         }
     }
 
-    /* Upper triangle, mirrored: exactly symmetric with a zero diagonal, so row j is
-       column j. lambda*P is computed in double and rounded to float once. */
+    /* upper triangle, mirrored: symmetric with a zero diagonal. */
     for (size_t i = 0; i < n; i++) {
         float *row_i = m->lam_p + i * m->stride;
         row_i[i] = 0.0f;
@@ -159,7 +142,7 @@ static SaStatus model_create(const SaProblem *p, Model *m)
     return SA_OK;
 }
 
-/* T_s = T0 * (T1/T0)^(s/(S-1)), one float per sweep, as in sa_scalar.c. */
+/* T_s = T0 * (T1/T0)^(s/(S-1)), one float per sweep, similar to sa_scalar.c. */
 static SaStatus schedule_create(Model *m, double t0, double t1, int sweeps)
 {
     m->temps = malloc((size_t)sweeps * sizeof *m->temps);
@@ -214,10 +197,7 @@ static int random_below(uint32_t r, int bound)
     return (int)(((uint64_t)r * (uint64_t)bound) >> 32);
 }
 
-/* A random starting team, as chain_init() in sa_scalar.c: a partial Fisher-Yates
-   shuffle driven by word 0 of Philox(seed; STREAM_START, chain, t). The draws do not
-   depend on the shuffle, so they come 8 at a time from the vector Philox; the swaps
-   themselves stay sequential. Then g and E are built by the vector refresh kernel. */
+/* A random starting team, like chain_init() in sa_scalar.c */
 static void chain_init(const Model *m, uint64_t seed, SaAvx2Chain *c)
 {
     for (int v = 0; v < m->n; v++) {
@@ -243,8 +223,7 @@ static void chain_init(const Model *m, uint64_t seed, SaAvx2Chain *c)
     memcpy(c->best_team, c->order, (size_t)m->k * sizeof *c->best_team);
 }
 
-/* Energy of a team from the caller's original inputs, summed in double, exactly as
-   exact_team_energy() in sa_scalar.c. */
+/* Energy of a team from the caller's original inputs, summed in double, as exact_team_energy() in sa_scalar.c. */
 static double exact_team_energy(const Model *m, const int32_t *team)
 {
     const SaProblem *p = m->problem;
@@ -259,10 +238,6 @@ static double exact_team_energy(const Model *m, const int32_t *team)
     }
     return -reward + p->lambda * penalty;
 }
-
-/* ------------------------------------------------------------------------- */
-/* Public entry point                                                         */
-/* ------------------------------------------------------------------------- */
 
 int sa_avx2_supported(void)
 {
