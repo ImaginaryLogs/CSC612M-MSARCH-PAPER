@@ -1,0 +1,53 @@
+\section{Risks and Decision Matrix}
+\label{app:risks}
+
+\subsection{Risks and what we do about them}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{1.5cm}X}
+\toprule
+Risk & Impact & What we do \\
+\midrule
+CUDA is new to two members & Medium & Week 7 ramp-up exercises; start with the simplest kernel (v1, one thread per chain); test T7 compares every step with the scalar version, so bugs show up immediately; Members 2 and 3 pair on the SA kernel. \\
+Only Member 1 knows the quantum part & Medium & Quantum work is not graded core; Ising files and tests are finished by Week 9, so QAOA can be reported as future work if Member 1 runs out of time. \\
+CUDA-Q does not install or cannot see the GPU (driver, WSL2) & High for RQ3 only & Check in Week 6; fallback to a native Linux boot, CUDA-Q's CPU simulator for small $n$, or cuQuantum Python. RQ1--RQ2 unaffected. \\
+Sister project output late or never & Low & Decision D1: curated list plus our own scoring script. \\
+Assembly bugs & Low & The team knows x86; intrinsics twin and tests T7, T9 cross-check. \\
+SIMD/GPU gains smaller than hoped & Medium (a result, not a failure) & Explain with the share of accepted steps and Nsight numbers; report throughput with many chains. \\
+QAOA slow to tune at $n\ge 20$ & Medium & Prioritize $n\le 16$; reuse tuned angles across problems; cap evaluations. \\
+Over-reading the biology & High (credibility) & Caveats in every results table; no claims of efficacy or safety. \\
+\bottomrule
+\end{tabularx}
+\caption{Risks.}
+\end{table}
+
+\subsection{Minimum version vs.\ full version}
+
+\textbf{Minimum version (passes the course):} checked scoring function; exact search on CPU and GPU; SA in scalar C++, AVX2 assembly and CUDA v1 with identical decisions; timing tables on small and large problems; the best AD combinations. \textbf{Full version (supports a short paper):} plus CUDA v2 and standard QAOA measured against exact answers. \textbf{Stretch:} XY-mixer QAOA.
+
+\subsection{Decision matrix}
+
+Scores are 1 (low) to 5 (high). ``Course'' is the value for the SIMD/SIMT grading criteria; ``Novelty'' is research value. The build order puts doability first, then novelty.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}Xcccc>{\raggedright\arraybackslash}p{3.4cm}}
+\toprule
+Component & Doable & Course & Novelty & Order & Reason \\
+\midrule
+Problem builder + tests & 5 & 3 & 2 & 1 & Everything depends on it. \\
+Exact search (CPU, GPU) & 5 & 4 & 2 & 2 & Answer key; a good first CUDA kernel. \\
+Scalar SA + deterministic mode & 5 & 3 & 2 & 3 & Reference for all other versions. \\
+AVX2 assembly SA & 5 & 5 & 2 & 4 & Core SIMD deliverable; team already knows \texttt{ymm}. \\
+CUDA SA v1 (thread per chain) & 4 & 5 & 3 & 5 & Core SIMT deliverable. \\
+CUDA SA v2 (warp per chain) & 3 & 4 & 3 & 6 & Better memory use; interesting comparison with v1. \\
+Standard QAOA (CUDA-Q) & 3 & 3 & 4 & 7 & Main research result. \\
+XY-mixer QAOA (stretch) & 2 & 2 & 5 & 8 & Strongest novelty, hardest circuit. \\
+\bottomrule
+\end{tabularx}
+\caption{Decision matrix: build in the order of the ``Order'' column.}
+\label{tab:decision_matrix}
+\end{table}

@@ -1,0 +1,26 @@
+\section{Proposed Target Implementation Platform}
+\label{sec:platform}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{3.2cm}X}
+\toprule
+Component & Specification \\
+\midrule
+Parallel paradigms & SIMD: AVX2 (256-bit \texttt{ymm} registers) in hand-written x86-64 assembly (NASM) for the inner loop, called from C++; the team already has x86 and \texttt{xmm}/\texttt{ymm} experience. A C++ intrinsics version of the same loop is kept as a cross-check. SIMT: CUDA C++. \\
+GPU & NVIDIA GeForce RTX 5070 Ti: Blackwell (GB203), compute capability 12.0, 70 SMs with 8{,}960 CUDA cores, 16 GB GDDR7 on a 256-bit bus, 896 GB/s, 48 MB L2 cache \cite{rtx5070ti_specs}. GeForce cards are slow at 64-bit floating point, so all GPU code uses 32-bit integers (deterministic mode) or 32-bit floats. \\
+CPU (baselines) & Intel Core Ultra 7 265KF (Arrow Lake): 8 performance cores and 12 efficiency cores, 20 threads (no hyper-threading), up to 5.5 GHz boost, 30 MB L3 and 36 MB L2 in total \cite{intel_265kf_ark}; [RAM: size, DDR5 speed]. It supports AVX2 and FMA; AVX-512 is not available and not assumed. Same machine as the GPU. Timing runs are pinned to a performance core, and the clock speed is recorded, so that the efficiency cores do not distort the baselines. \\
+OS & Linux (Ubuntu 22.04/24.04). Windows with WSL2 is acceptable for the C++/CUDA core; CUDA-Q is distributed for Linux, so QAOA runs either natively on Linux or under WSL2. GPU visibility under WSL2 is checked with \texttt{nvidia-smi} and a CUDA-Q test run before any experiments. \\
+Toolchain & CUDA Toolkit 12.8 or newer (the first release that can compile for compute capability 12.0, \texttt{sm\_120}) with an NVIDIA driver from the 570 series or newer, GCC/Clang with C++17, NASM, CMake; the Philox random-number generator \cite{salmon2011parallel} written once in a header that both CPU and GPU code include. \\
+Quantum stack & CUDA-Q (Python, CUDA~12 build) with the \texttt{nvidia} target, which simulates on a single GPU through cuQuantum's cuStateVec \cite{cudaq_docs,bayraktar2023cuquantum}. cuStateVec supports the Blackwell GPU family from version 1.8 (cuQuantum 25.03) \cite{cuquantum_docs}, so we use a recent CUDA-Q release and test it on this card first. If installation fails: CUDA-Q's CPU simulator for small $n$, or cuQuantum's Python interface directly. \\
+Analysis & Python 3.11+ (NumPy, SciPy, pandas, NetworkX for small reference checks, matplotlib). \\
+Profiling & Nsight Systems and Nsight Compute (recent versions with Blackwell support) on the GPU; \texttt{perf} and Intel VTune on the CPU, with hardware counters read on native Linux where available. \\
+Repository & GitHub: source, build and benchmark scripts, frozen data manifests (not the licensed raw data), the parallel-algorithm discussion, and the sequential-vs-parallel timing results required for Milestone 3. \\
+\bottomrule
+\end{tabularx}
+\caption{Target platform.}
+\label{tab:platform}
+\end{table}
+
+The RTX 5070 Ti is a consumer gaming card. That is enough for every classical part of this project, because the problems are small in memory (a 2{,}000-drug penalty table is 16 MB, which fits in the GPU's 48 MB L2 cache and in the CPU's 30 MB L3 cache). It is the limiting factor for the quantum simulation: simulating $n$ qubits needs $2^n$ complex numbers, so each extra qubit doubles the memory. In single precision a 30-qubit state takes 8 GB, so 16 GB runs out at roughly 30 qubits (about 29 in double precision).

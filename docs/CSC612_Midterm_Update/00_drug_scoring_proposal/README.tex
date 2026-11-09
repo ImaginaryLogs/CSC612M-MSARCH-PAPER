@@ -1,0 +1,442 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+\newtcolorbox{analogy}{colback=blue!4,colframe=blue!45!black,
+  fonttitle=\bfseries,title=Hardware analogy,breakable}
+\newtcolorbox{pitfall}{colback=red!4,colframe=red!50!black,
+  fonttitle=\bfseries,title=Common misconception,breakable}
+
+\title{README: A Primer for the MSARCH Project\\[4pt]
+\large Bioinformatics, Co-Expression Networks, QUBO, QAOA, and cuQuantum\\
+for readers who know SIMD, assembly, and CUDA}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\section*{How to use this document}
+
+The main specification (\texttt{main.tex}) is written for readers who already
+know transcriptomics and WGCNA. This primer assumes only that you know
+computer architecture: SIMD/SIMT execution, memory hierarchies, assembly-level
+reasoning, and CUDA. Every biological or quantum concept is reduced to the
+arrays and operations you would actually write kernels for. Read it once
+front to back; afterwards, Section~\ref{sec:map} maps each pipeline module to
+the concepts here, and Section~\ref{sec:glossary} is a glossary.
+
+\tableofcontents
+
+%======================================================================
+\section{Biology in one page}
+
+\subsection{Genes, RNA, and expression}
+
+Every cell in your body carries the same DNA, a string over the alphabet
+$\{A,C,G,T\}$ of about $3\times10^9$ characters. A \textbf{gene} is a
+region of that string that encodes a product, usually a protein. Humans have
+about 20{,}000 protein-coding genes.
+
+Cells do not use all genes at once. To use a gene, the cell
+\textbf{transcribes} it into a temporary copy made of RNA (messenger RNA,
+mRNA), and ribosomes \textbf{translate} that copy into protein. This is the
+``central dogma'': DNA $\to$ RNA $\to$ protein.
+
+\begin{analogy}
+DNA is the program image on disk: every cell has the full binary. RNA
+transcripts are the instructions currently paged into the instruction cache.
+Counting how many copies of each gene's RNA are present tells you which
+``functions'' the cell is calling right now, and how hot each one is. The
+count for a gene is its \textbf{expression level}.
+\end{analogy}
+
+\subsection{Transcriptomics and RNA-Seq}
+
+The \textbf{transcriptome} is the full set of RNA in a tissue sample;
+\textbf{transcriptomics} is measuring it. The dominant technology,
+\textbf{RNA-Seq}, shreds the RNA, sequences millions of short fragments
+(``reads''), aligns each read back to the genome, and counts how many reads
+land in each gene.
+
+The result is a plain integer matrix:
+\[
+C \in \mathbb{N}^{G_0\times S}, \qquad C_{is} = \text{reads from gene } i
+\text{ in sample } s.
+\]
+Rows are genes (tens of thousands), columns are samples (tissue from different
+people). In this project, each column is a piece of brain from one deceased
+donor. That matrix is the only input the GPU ever sees; everything biological
+is metadata attached to rows (gene names) and columns (donor diagnosis, age,
+etc.).
+
+\begin{pitfall}
+``Bulk'' RNA-Seq, used here, averages over all cells in a tissue chunk
+(neurons, immune cells, support cells). Single-cell RNA-Seq gives one column
+per cell instead, and is out of scope. A change in a bulk expression value can
+mean a gene changed \emph{or} that the mix of cell types changed (e.g., neurons
+died). Biologists interpret results with this in mind.
+\end{pitfall}
+
+\subsection{Why raw counts need preprocessing}
+
+Raw counts are not directly comparable:
+\begin{itemize}[nosep]
+  \item \textbf{Library size:} one sample may simply have been sequenced
+        twice as deeply, doubling every count. Normalization (CPM, TMM)
+        rescales each column.
+  \item \textbf{Skew:} counts span orders of magnitude, so we take
+        $\log_2(\text{count}+1)$ to compress the range.
+  \item \textbf{Batch effects:} samples processed on different days or
+        machines differ systematically. These are removed by regressing out
+        known technical variables (batch, RNA quality ``RIN'', time between
+        death and tissue freezing ``PMI'').
+  \item \textbf{Filtering:} genes that are nearly always zero carry noise, not
+        signal, and are dropped. We then keep the $G$ most variable genes.
+\end{itemize}
+This is Module~1. It is cheap ($O(GS)$) and mostly done on the CPU.
+
+\subsection{Alzheimer's disease in brief}
+
+Alzheimer's disease (AD) is the most common cause of dementia. Its brain
+hallmarks are \textbf{amyloid plaques} (clumps of a protein fragment between
+cells) and \textbf{tau tangles} (twisted protein fibers inside neurons).
+Pathologists score these on standard scales: \textbf{Braak stage} (how far
+tangles have spread, 0--VI) and \textbf{CERAD} (plaque density). Late-onset AD
+is \textbf{polygenic}: many genes each nudge risk slightly (the largest single
+factor is the \textit{APOE}~$\varepsilon4$ variant). That is why we look at
+genes as a network instead of one at a time.
+
+\subsection{The ROSMAP dataset}
+
+ROSMAP (Religious Orders Study and Rush Memory and Aging Project) follows
+older adults who agree to yearly cognitive testing and brain donation at
+death. For each donor we get brain RNA-Seq plus clinical diagnosis, cognitive
+test trajectories, and pathology scores. The data live on the AD Knowledge
+Portal (Synapse) and require registering and signing a data use certificate
+before download; plan for that delay. Public data from NCBI GEO can be used
+meanwhile.
+
+%======================================================================
+\section{From expression to co-expression networks}
+
+\subsection{The core idea}
+
+If two genes rise and fall together across hundreds of people, they are
+likely controlled by the same mechanism or work in the same process. Groups of
+such genes are called \textbf{modules}. If a module's overall activity tracks
+disease severity, the module (and its most central genes) are candidates for
+understanding or treating the disease. That is all of WGCNA in one paragraph;
+the rest is linear algebra.
+
+\subsection{Correlation is a dot product}
+
+Take gene $i$'s row $x_i\in\mathbb{R}^S$. Subtract its mean and divide by its
+norm to get a unit vector $z_i$. Then the Pearson correlation between genes
+$i$ and $j$ is just
+\[
+r_{ij} = z_i\cdot z_j = \sum_{s=1}^{S} z_{is} z_{js} \in [-1,1].
+\]
+Stacking all standardized rows into $Z\in\mathbb{R}^{G\times S}$, every pair at
+once is
+\[
+R = Z Z^{\top}.
+\]
+
+\begin{analogy}
+This is a GEMM with inner dimension $S$ (hundreds) and output $G\times G$
+(up to $20{,}000^2 = 4\times10^8$ entries). It is exactly the tiled
+shared-memory matrix multiply from any CUDA course, and because $R$ is
+symmetric you only need the upper triangle (BLAS \texttt{SYRK}). Arithmetic
+intensity is high, so this stage is compute-bound.
+\end{analogy}
+
+\subsection{Soft thresholding: turning correlation into a network}
+
+A network needs edge weights $a_{ij}\ge0$. WGCNA uses
+\[
+a_{ij} = |r_{ij}|^{\beta}, \qquad \beta \approx 6\text{--}14.
+\]
+Raising to a power keeps strong correlations (0.9$^{6}\approx0.53$) and
+crushes weak ones (0.3$^{6}\approx0.0007$) without a hard cut-off. $\beta$ is
+chosen so that the network's degree distribution looks \textbf{scale-free}
+(a few highly connected hubs, many sparsely connected nodes), which is
+empirically what biological networks look like.
+
+\begin{analogy}
+A pure element-wise map over $G^2$ values: a textbook memory-bound kernel.
+Every element is read once and written once; the only optimizations that
+matter are coalescing, vector loads (\texttt{float4}), and fusing it with the
+next pass (row sums).
+\end{analogy}
+
+The \textbf{connectivity} (weighted degree) of gene $i$ is the row sum
+$k_i = \sum_u a_{iu}$.
+
+\subsection{Topological Overlap: counting shared neighbors}
+
+Correlation is noisy with a few hundred samples. WGCNA makes the similarity
+more robust by asking not only ``are $i$ and $j$ connected?'' but ``do $i$
+and $j$ connect to the same other genes?''
+\[
+l_{ij} = \sum_{u} a_{iu} a_{uj} \quad\Longleftrightarrow\quad L = A\cdot A,
+\]
+\[
+\text{TOM}_{ij} = \frac{l_{ij} + a_{ij}}{\min(k_i,k_j) + 1 - a_{ij}}.
+\]
+$l_{ij}$ is the weighted count of 2-hop paths from $i$ to $j$. The
+denominator normalizes it into $[0,1]$. The distance used for clustering is
+$D = 1 - \text{TOM}$.
+
+\begin{analogy}
+$A\cdot A$ with $G=20{,}000$ is $2G^3 = 1.6\times10^{13}$ FLOPs as a plain
+GEMM, or half that with SYRK because $A$ is symmetric. This one matrix
+product is the reason the project exists: it is the $O(G^3)$ term. The TOM
+formula afterward is another memory-bound element-wise pass that needs
+$k_i$ and $k_j$, which you can cache in shared memory per tile.
+\end{analogy}
+
+\begin{pitfall}
+$O(G^3)$ is \emph{cubic}, not exponential. Doubling $G$ costs $8\times$ in
+time and $4\times$ in memory. The real-world pain is memory: a
+$20{,}000\times20{,}000$ float matrix is 1.6~GB, and you need two or three of
+them. CPU tools often split genes into blocks to fit, which throws away
+between-block overlap. A GPU with 8+~GB holds the whole thing.
+\end{pitfall}
+
+\subsection{Clustering into modules}
+
+With the distance matrix $D$, standard \textbf{hierarchical clustering}
+(average linkage) builds a binary tree (dendrogram) by repeatedly merging the
+two closest clusters. \textbf{Dynamic Tree Cut} then cuts the tree into
+branches of varying height; each branch with at least $\sim$30 genes becomes a
+module. Genes that fit nowhere go to a ``grey'' leftover module (label 0).
+This step is irregular, pointer-chasing, and sequential in nature, which is why
+it stays on the CPU in our baseline---and why it is the natural place to plug
+in alternative algorithms.
+
+\subsection{Eigengenes, hubs, and linking to disease}
+
+\begin{itemize}[nosep]
+  \item \textbf{Module eigengene:} the first principal component of the
+        module's rows of $Z$ (the top right singular vector from an SVD).
+        Think of it as the module's ``average'' expression pattern across
+        people---one number per donor per module.
+  \item \textbf{Module--trait correlation:} correlate each eigengene with
+        disease variables (diagnosis, Braak, CERAD, cognitive decline). A
+        module whose eigengene tracks disease is ``AD-associated.''
+  \item \textbf{Hub genes:} genes in that module most correlated with its
+        eigengene ($k_{\text{ME}}$). These are the candidate biomarkers.
+  \item \textbf{Enrichment:} check whether a module is over-represented for
+        known functions (e.g., immune response) or cell types (e.g.,
+        microglia, the brain's immune cells) using a hypergeometric test.
+        This is how a list of gene names becomes a biological story.
+\end{itemize}
+
+%======================================================================
+\section{Optimization problems: QUBO and Ising}
+
+\subsection{QUBO}
+
+A \textbf{Quadratic Unconstrained Binary Optimization} problem is
+\[
+\min_{x\in\{0,1\}^n} \; x^{\top} Q x = \sum_{i} Q_{ii}x_i + \sum_{i<j}
+(Q_{ij}+Q_{ji}) x_i x_j,
+\]
+for a real $n\times n$ matrix $Q$ (linear terms sit on the diagonal because
+$x_i^2 = x_i$). Many NP-hard problems (max-cut, graph partitioning, scheduling)
+can be encoded this way; constraints are added as penalty terms.
+
+\begin{analogy}
+Brute force is a loop over all $2^n$ bit patterns of an $n$-bit register,
+evaluating a quadratic form each time: embarrassingly parallel on a GPU, one
+thread per pattern, and practical up to $n\approx 30$--$35$. We use exactly
+this as the ground-truth baseline for the quantum solver.
+\end{analogy}
+
+\subsection{Ising form}
+
+Substituting $x_i = (1+s_i)/2$ with spins $s_i\in\{-1,+1\}$ turns a QUBO into
+an Ising energy $\sum_i h_i s_i + \sum_{i<j} J_{ij} s_i s_j$ (plus a constant).
+Quantum algorithms work natively in this form because a qubit measured in the
+computational basis yields $\pm1$ under the Pauli-$Z$ operator.
+
+\subsection{Module detection as a QUBO}
+
+To split a weighted graph into two groups, assign each node a spin. Newman's
+\textbf{modularity} measures how much more edge weight falls inside groups
+than expected at random:
+\[
+Q = \frac{1}{4m}\, s^{\top} B s, \qquad B = W - \frac{k k^{\top}}{2m},
+\]
+where $W$ is the weight matrix, $k$ the degrees, and $2m=\sum k_i$.
+Maximizing $Q$ is minimizing $-s^{\top}Bs$: an Ising problem with
+$J=-B$. Recursive splitting, or a one-hot encoding with one bit per
+(node, community) pair, gives more than two groups.
+
+\section{Quantum computing, just enough}
+
+\subsection{Qubits and the state vector}
+
+A classical $n$-bit register holds one of $2^n$ values. An $n$-qubit
+register's state is a vector of $2^n$ complex \textbf{amplitudes}
+$\psi\in\mathbb{C}^{2^n}$ with $\|\psi\|_2=1$. Measuring it returns bit
+pattern $b$ with probability $|\psi_b|^2$ and destroys the superposition.
+
+\begin{analogy}
+Simulating $n$ qubits on classical hardware means storing $\psi$ explicitly:
+$2^n$ complex numbers. At complex64 (8 bytes) that is 8~GiB for 30 qubits and
+16~GiB for 31. Every added qubit doubles memory. This is the hard wall for
+the quantum part of the project and the reason it runs on a small, reduced
+graph (a few dozen module eigengenes), never on 20{,}000 genes.
+\end{analogy}
+
+\subsection{Gates are structured matrix--vector products}
+
+A quantum program is a sequence of \textbf{gates}, each a unitary matrix
+applied to $\psi$. A 1-qubit gate is a $2\times2$ matrix applied to qubit $q$;
+on the full state it acts on all $2^{n-1}$ pairs of amplitudes whose indices
+differ only in bit $q$.
+
+\begin{analogy}
+Applying a 1-qubit gate is a strided butterfly over the state vector, like
+one stage of an FFT: pair up elements $i$ and $i \oplus (1\ll q)$ and apply a
+$2\times2$ complex multiply to each pair. It is memory-bandwidth-bound and
+trivially data-parallel---perfect for SIMT. Diagonal gates (like the QAOA cost
+layer) are just an element-wise phase multiply.
+\end{analogy}
+
+\subsection{QAOA}
+
+The \textbf{Quantum Approximate Optimization Algorithm} is a hybrid loop for
+approximately solving a QUBO/Ising problem with cost Hamiltonian
+$H_C = \sum h_i Z_i + \sum J_{ij} Z_i Z_j$:
+\begin{enumerate}[nosep]
+  \item Start in the uniform superposition over all $2^n$ bit patterns
+        (Hadamard on every qubit).
+  \item Repeat $p$ times: apply $e^{-i\gamma H_C}$ (a diagonal phase: each
+        amplitude $\psi_b$ is multiplied by $e^{-i\gamma\,\text{cost}(b)}$),
+        then the mixer $e^{-i\beta\sum_i X_i}$ (an $R_X(2\beta)$ rotation on
+        every qubit).
+  \item Compute the expected cost $\langle\psi|H_C|\psi\rangle
+        = \sum_b |\psi_b|^2 \text{cost}(b)$.
+  \item A classical optimizer (e.g., COBYLA) adjusts the $2p$ angles
+        $(\gamma,\beta)$ to lower that expectation; go to 1.
+  \item Sample bit patterns from the final state; the best one is the
+        answer.
+\end{enumerate}
+The quality metric is the \textbf{approximation ratio}: the obtained objective
+divided by the true optimum (which we get by brute force).
+
+\begin{pitfall}
+Simulating QAOA on a GPU is \emph{slower} than brute-forcing the same QUBO
+on the same GPU---the simulation itself touches all $2^n$ amplitudes many
+times. The quantum backend in this project is not there for speed. It is
+there to (a) prove the pipeline's module-detection interface can host a
+quantum solver unchanged, and (b) measure how good QAOA's answers are on a
+real biological graph, which matters if and when real quantum hardware is
+used.
+\end{pitfall}
+
+\subsection{cuQuantum and friends}
+
+\textbf{NVIDIA cuQuantum} is a set of CUDA libraries for simulating quantum
+circuits fast on GPUs. It is a library, not a quantum computer.
+\begin{itemize}[nosep]
+  \item \textbf{cuStateVec:} stores $\psi$ in device memory and applies gates
+        with optimized kernels (the butterflies above), computes expectation
+        values, and samples measurements. This is what we use.
+  \item \textbf{cuTensorNet:} represents the circuit as a network of small
+        tensors and contracts them, which can handle more qubits for
+        shallow or weakly-entangled circuits by never materializing $\psi$.
+  \item \textbf{Frontends:} you rarely call cuQuantum directly.
+        \textbf{CUDA-Q} (NVIDIA's C++/Python quantum programming model) and
+        Qiskit Aer can dispatch to cuQuantum as their GPU backend. You write
+        the circuit; the frontend emits cuStateVec calls.
+\end{itemize}
+
+%======================================================================
+\section{Graph Neural Networks, briefly}
+
+A \textbf{Graph Neural Network} learns a vector (embedding) for each node by
+repeatedly averaging its neighbors' vectors and passing the result through a
+small neural network layer. A graph convolution layer is essentially
+$H' = \sigma(\hat{A} H W)$: a sparse matrix (the graph) times a dense feature
+matrix times a weight matrix---SpMM followed by GEMM. Clustering the learned
+embeddings gives modules. This is an optional backend; the point is that it
+plugs into the same interface.
+
+%======================================================================
+\section{Where each concept lives in the pipeline}
+\label{sec:map}
+
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{}lXXl@{}}
+\toprule
+Module & What it does biologically & What it is computationally & Hardware \\
+\midrule
+0 Input & Read counts per gene per donor & Load integer matrix + metadata tables & CPU \\
+1 Preprocessing & Normalize, remove batch effects, pick informative genes & Column scaling, log, linear regression, row standardization & CPU / GPU \\
+2 Correlation & Which genes move together & $R=ZZ^\top$ (SYRK/GEMM) & GPU, compute-bound \\
+3 TOM & Robust similarity via shared neighbors & $|R|^\beta$, row sums, $A\cdot A$, element-wise TOM & GPU, mixed \\
+4 Module detection & Group genes into modules & Hierarchical clustering, or QUBO/QAOA, or GNN & CPU / GPU / cuQuantum \\
+5 Biomarker output & Which modules/genes track AD & SVD per module, correlations, statistics & CPU / GPU \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+%======================================================================
+\section{Glossary}
+\label{sec:glossary}
+
+\begin{description}[style=nextline,leftmargin=1.5em,itemsep=2pt]
+  \item[Adjacency ($A$)] Edge-weight matrix of the co-expression network, $|r|^\beta$.
+  \item[AMP-AD] Accelerating Medicines Partnership for AD; its consortium
+        published consensus AD co-expression modules we compare against.
+  \item[Braak stage / CERAD] Standard pathology scores for tangle spread and
+        plaque density.
+  \item[Bulk RNA-Seq] Sequencing RNA from a tissue chunk; averages over cell types.
+  \item[CPM / TMM / VST] Normalizations that make samples comparable
+        (counts-per-million, trimmed mean of M-values, variance-stabilizing
+        transform).
+  \item[DLPFC] Dorsolateral prefrontal cortex, the brain region sampled in ROSMAP.
+  \item[Dynamic Tree Cut] Algorithm that cuts a dendrogram into modules at
+        variable heights.
+  \item[Eigengene] First principal component of a module; its summary profile.
+  \item[Enrichment] Test of whether a gene list contains more members of a
+        known category than chance predicts.
+  \item[GEO] NCBI Gene Expression Omnibus, a public expression-data archive.
+        GSE = a dataset (series), GSM = one sample, GPL = the platform.
+  \item[Hub gene] Highly connected gene central to a module.
+  \item[kME] Correlation of a gene with its module eigengene (module membership).
+  \item[Modularity ($Q$)] Score of how well a partition places edges inside groups.
+  \item[QAOA] Hybrid quantum--classical algorithm for approximate combinatorial optimization.
+  \item[QUBO] Minimize $x^\top Qx$ over binary $x$.
+  \item[ROSMAP] Two linked AD cohorts with brain donation; our data source.
+  \item[Scale-free] Degree distribution following a power law; used to choose $\beta$.
+  \item[Soft threshold ($\beta$)] Exponent turning correlations into edge weights.
+  \item[State vector] The $2^n$ complex amplitudes describing $n$ qubits.
+  \item[Synapse] Sage Bionetworks' data platform hosting the AD Knowledge Portal.
+  \item[TOM] Topological Overlap Matrix; similarity based on shared neighbors.
+  \item[WGCNA] Weighted Gene Co-expression Network Analysis, the method we accelerate.
+\end{description}
+
+\section*{Suggested next reading}
+\begin{itemize}[nosep]
+  \item Langfelder \& Horvath (2008), \emph{WGCNA: an R package for weighted
+        correlation network analysis}, BMC Bioinformatics 9:559---the
+        method paper; its tutorials walk through every step above in R.
+  \item Farhi, Goldstone \& Gutmann (2014), arXiv:1411.4028---original QAOA paper.
+  \item Lucas (2014), \emph{Ising formulations of many NP problems}---how to
+        write problems as QUBOs.
+  \item The NVIDIA cuQuantum and CUDA-Q documentation, starting with the
+        cuStateVec overview.
+\end{itemize}
+
+\end{document}

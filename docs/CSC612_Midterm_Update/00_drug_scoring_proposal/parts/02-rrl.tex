@@ -1,0 +1,47 @@
+\section{Review of Related Literature}
+\label{sec:rrl}
+
+\subsection{Network medicine and the disease module}
+
+Network medicine studies disease through the network of molecular interactions rather than one gene at a time~\cite{barabasi2011network}. Menche et al.~\cite{menche2015uncovering} showed that proteins associated with the same disease form a connected neighborhood (a \emph{disease module}) in the human interactome, even though the interactome is still incomplete. They also defined a \emph{separation} measure: two sets of proteins that overlap in the network have negative separation, and sets that are far apart have positive separation.
+
+\subsection{Network proximity for drug repurposing}
+
+Guney et al.~\cite{guney2016network} turned this into a drug screen. For a drug with target set $T$ and a disease module $S$, the \emph{closest distance} is the average, over the drug's targets, of the shortest-path distance to the nearest disease protein. To correct for hub proteins, they compare it with the same measure for random target and disease sets that have matching degrees, giving a $z$-score. They showed that drugs with significantly negative $z$ (closer than chance) are enriched for drugs that actually treat the disease. Cheng et al.~\cite{cheng2018network} applied the approach to cardiovascular disease and confirmed predictions with patient-record data, and later showed that good drug combinations follow a \emph{complementary exposure} pattern: both drugs are close to the disease module, but their own targets are separated from each other~\cite{cheng2019network}.
+
+\subsection{Network proximity studies in Alzheimer's disease}
+
+Fang et al.~\cite{fang2021endophenotype} built AD modules around amyloid and tau biology, screened drugs by proximity, and used insurance claims data to find that sildenafil users had lower AD incidence. A 2023 pipeline~\cite{csbj2023proximity} built separate modules for different pathological stages of AD and ranked candidate drugs for each, and a 2025 study~\cite{lqt2025proximity} combined proximity ranking with screening for drugs that raise the risk of a dangerous heart rhythm (Long QT syndrome). These studies establish both the method and its relevance to AD. The inputs they rely on are public: integrated knowledge graphs such as Hetionet~\cite{himmelstein2017hetionet}, interaction databases such as BioGRID~\cite{oughtred2021biogrid} and STRING~\cite{szklarczyk2023string}, drug--target databases such as ChEMBL~\cite{zdrazil2024chembl}, DGIdb~\cite{freshour2021dgidb}, and DrugBank~\cite{knox2024drugbank}, AD genes from genome-wide association studies~\cite{bellenguez2022new}, and the annual AD drug-development pipeline review~\cite{cummings2024pipeline}, which lists drugs currently in AD clinical trials.
+
+\subsection{Graph traversal on GPUs}
+
+Breadth-first search is the building block for shortest paths on unweighted graphs. Harish and Narayanan~\cite{harish2007accelerating} gave one of the first CUDA BFS implementations, Merrill et al.~\cite{merrill2012scalable} showed how to make GPU BFS efficient with prefix-sum-based frontier expansion, and Gunrock~\cite{wang2016gunrock} provides a general GPU graph library. When many BFS runs share one graph, \emph{multi-source BFS} (MS-BFS)~\cite{then2014more} runs up to 64 or more searches at once by storing, for each node, a bit per search; expanding the frontier then becomes bitwise OR and AND on machine words. This fits data-level parallelism well: each
+thread handles one node and one word of bits, with no branching per search.
+
+\subsection{QUBO, quantum optimization, and drug combinations}
+
+A QUBO asks for the binary vector $x$ that minimizes a quadratic function $x^{\top}Qx$. Many selection problems can be written this way~\cite{glover2019tutorial,lucas2014ising}. QUBOs can be attacked with classical heuristics such as simulated annealing~\cite{kirkpatrick1983optimization}, with quantum annealers, or with the gate-based QAOA~\cite{farhi2014qaoa}. NVIDIA cuQuantum~\cite{bayraktar2023cuquantum} simulates quantum circuits on GPUs, which lets QAOA be tested on small problems without quantum hardware. Most relevant here, a 2026 study~\cite{qmi2026combinations} formulated network-based drug-combination prediction as a QUBO and solved it with quantum annealing.
+
+\subsection{Synthesis and gap}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabularx}{\linewidth}{@{}lXccc@{}}
+\toprule
+Work & What it does & AD & GPU & Quantum \\
+\midrule
+Guney et al.~\cite{guney2016network} & Proximity $z$-score drug screen & -- & -- & -- \\
+Cheng et al.~\cite{cheng2019network} & Complementary-exposure drug combinations & -- & -- & -- \\
+AD proximity studies~\cite{fang2021endophenotype,csbj2023proximity,lqt2025proximity} & AD drug repurposing & \checkmark & -- & -- \\
+GPU BFS / MS-BFS~\cite{merrill2012scalable,then2014more,wang2016gunrock} & Fast graph traversal & -- & \checkmark & -- \\
+Quantum drug combinations~\cite{qmi2026combinations} & QUBO + quantum annealing & -- & -- & \checkmark \\
+\textbf{This work} & GPU proximity screen + optional simulated-QAOA benchmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabularx}
+\caption{How this project relates to prior work. \todo{Confirm from the
+papers whether any of the AD studies or \cite{qmi2026combinations} used GPUs
+or targeted AD.}}
+\end{table}
+
+The method (network proximity), its relevance to AD, fast GPU graph traversal, and quantum formulations of drug combinations all exist, but separately. Proximity screens are typically run as sequential scripts, which caps the number of random samples and the number of network and disease-module variants that can be compared. We found no GPU implementation of the full proximity screen, and no study benchmarking exact, classical, and simulated gate-model QAOA solvers on AD drug-combination QUBOs.

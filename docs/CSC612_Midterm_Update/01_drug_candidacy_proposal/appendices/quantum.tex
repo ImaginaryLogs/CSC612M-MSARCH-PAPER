@@ -1,0 +1,103 @@
+\section{Quantum Design: QAOA with cuQuantum}
+\label{app:quantum}
+
+This appendix is for Member 1. Others only need the plain-words box and \Cref{tab:svmem}.
+
+\begin{plainwords}
+QAOA is a recipe for a quantum circuit with a few adjustable angles. Each layer of the circuit first ``rewards'' low-energy combinations (using our Ising file) and then ``mixes'' combinations together. A normal computer program tunes the angles: it runs the circuit, measures the average energy, adjusts the angles, and repeats. At the end, we measure the circuit thousands of times; each measurement gives one candidate combination, and we keep the best valid one. On our GPU, the ``quantum computer'' is a simulation that stores $2^n$ numbers.
+\end{plainwords}
+
+\subsection{Who does what}
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}p{4.2cm}X}
+\toprule
+Step & Done by \\
+\midrule
+Build the QUBO and convert it to Ising form & Our Python builder (Module 2) \\
+Write the QAOA circuit & Our CUDA-Q kernel (Python \texttt{@cudaq.kernel}) \\
+Simulate the circuit & CUDA-Q \texttt{nvidia} target, which calls cuQuantum's cuStateVec on the GTX 1660 \cite{cudaq_docs,bayraktar2023cuquantum} \\
+Average energy for a set of angles & CUDA-Q \texttt{observe} (exact, since the simulator knows the full state) \\
+Tune the angles & COBYLA optimizer on the CPU (CUDA-Q's optimizers or SciPy) \\
+Draw and check answers & CUDA-Q \texttt{sample}; our code decodes and scores each answer with the judge \\
+Real quantum hardware & Not used \\
+\bottomrule
+\end{tabularx}
+\caption{Roles. cuQuantum is a simulator; it neither builds the problem nor optimizes it.}
+\end{table}
+
+The CUDA-Q functions named here (\texttt{cudaq.kernel}, \texttt{cudaq.sample}, \texttt{cudaq.observe}, \texttt{cudaq.set\_target}, \texttt{cudaq.set\_random\_seed}, \texttt{cudaq.spin}) are from its documented Python API \cite{cudaq_docs}. Their exact signatures are checked against the installed version in Week 11 and recorded in the repository.
+
+\subsection{The circuit}
+
+\begin{itemize}
+\item \textbf{Problem}: the scaled Ising form of the penalty QUBO (\Cref{app:formulation}), with $A$ at $1.1\times$, $2\times$ and $4\times$ the proven safe value.
+\item \textbf{Start}: every qubit in the $|+\rangle$ state (equal mix of all $2^n$ patterns) \cite{farhi2014qaoa}.
+\item \textbf{One layer}: an $R_Z(2\gamma h_i)$ rotation on each qubit; a $ZZ$ rotation by $2\gamma J_{ij}$ on every pair (CX, $R_Z$, CX); then an $R_X(2\beta)$ rotation on each qubit.
+\item \textbf{Depth}: $p\in\{1,2,3,4,5\}$ layers, each with its own $(\gamma,\beta)$.
+\end{itemize}
+
+\subsection{Tuning the angles}
+
+\begin{itemize}
+\item $p=1$: try a $20\times 20$ grid of $(\gamma,\beta)$ values, then run COBYLA from the best one.
+\item $p>1$: start from the tuned $p-1$ angles, stretched to $p$ layers (the ``interpolation'' trick of \cite{zhou2020qaoa}), plus 2 random starts; COBYLA with at most 300 evaluations.
+\end{itemize}
+
+\subsection{Reading the answers}
+
+\begin{itemize}
+\item After tuning, take $8{,}192$ samples (``shots'') with a fixed simulator seed.
+\item Turn each bitstring into a list of chosen drugs, in the documented qubit order. Test T6 checks the order by preparing known patterns.
+\item An answer is \emph{valid} if it has exactly $k$ ones. Every valid answer is re-scored by the judge.
+\item QAOA's result is its best valid answer. We do \emph{not} fix invalid answers.
+\end{itemize}
+
+\subsection{What we measure}
+
+For each instance, exact search gives the best energy $E_{\text{opt}}$ and the worst valid energy $E_{\text{worst}}$.
+\begin{itemize}
+\item \textbf{Valid share}: fraction of samples with exactly $k$ drugs.
+\item \textbf{Optimum share} $P_{\text{opt}}$: fraction of samples that are a best combination; $1/P_{\text{opt}}$ is the expected number of shots needed to see it once.
+\item \textbf{Quality} of valid samples: $r=(E_{\text{worst}}-\bar E_{\text{valid}})/(E_{\text{worst}}-E_{\text{opt}})$, which is 1 if every valid sample is optimal and 0 if all are the worst.
+\item \textbf{Cost}: circuit evaluations, shots, two-qubit gates per layer, simulator time, peak GPU memory.
+\end{itemize}
+
+\subsection{Memory limits on the GTX 1660}
+
+Simulating $n$ qubits stores $2^n$ complex numbers: $8\cdot 2^n$ bytes in single precision, $16\cdot2^n$ in double.
+
+\begin{table}[ht]
+\centering
+\small
+\begin{tabular}{rrrl}
+\toprule
+$n$ & single precision & double precision & On a 6 GB GTX 1660 \\
+\midrule
+16 & 512 KiB & 1 MiB & trivial \\
+20 & 8 MiB & 16 MiB & trivial \\
+24 & 128 MiB & 256 MiB & comfortable \\
+26 & 512 MiB & 1 GiB & comfortable \\
+28 & 2 GiB & 4 GiB & single fits; double to be tested \\
+30 & 8 GiB & 16 GiB & does not fit \\
+\bottomrule
+\end{tabular}
+\caption{Memory for the simulated state (arithmetic). The real limit is lower than 6 GB because the CUDA context and the library also need memory; it is measured, not assumed.}
+\label{tab:svmem}
+\end{table}
+
+\textbf{Plan}: $n\in\{8,12,16,20,24\}$ in single precision (CUDA-Q's default), with a double-precision check at $n\le 16$. Larger sizes only if time allows. Each layer has $\binom{n}{2}$ pair gates, and every gate touches the whole state, so run time grows quickly with $n$.
+
+\textbf{Why a state-vector simulator.} cuQuantum also offers tensor-network simulation, which helps for weakly connected circuits. Our penalty term connects every pair of qubits, so the state vector, which is exact and fits in memory at our sizes, is the better choice.
+
+\textbf{What the results mean.} A bigger simulated circuit is not evidence of quantum advantage. All results are reported as simulator measurements of answer quality.
+
+\subsection{Comparing QAOA with classical solvers fairly}
+
+The same problem size does not make a fair comparison, because the solvers spend effort differently. We report answer quality against (a) wall time on the same GPU and (b) the number of candidate combinations examined (SA steps vs.\ QAOA shots $\times$ circuit runs).
+
+\subsection{Stretch goal: QAOA that never gives invalid answers}
+
+If standard QAOA is finished by Week 12, Member 1 may add a variant that keeps the number of chosen drugs fixed at $k$ throughout: start from the equal mix of all $k$-drug patterns (a ``Dicke state'', prepared with the circuit of \cite{bartschi2019dicke}) and replace the $R_X$ mixer with ``XY'' gates that swap a 1 and a 0 between neighboring qubits \cite{hadfield2019qaoa,wang2020xy,cook2020kvertex}. Every answer is then valid, and the penalty $A$ is not needed. This is listed as future work if not reached (\Cref{app:limitations}).
