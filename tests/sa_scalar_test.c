@@ -126,7 +126,7 @@ static void test_philox_known_answers(void)
     }
 }
 
-/* The four-drug example from Lesson 1: the best team is {0,3} at energy -1.4. */
+/* The best team is {0,3} at energy -1.4. */
 static void test_toy_example(void)
 {
     printf("toy example\n");
