@@ -1,0 +1,332 @@
+{
+  "sources": [
+    {
+      "name": "interactome_string",
+      "path": "data/raw/extended/no_pk_genes/interactome_string.tsv",
+      "url": "https://string-db.org/api/tsv/network",
+      "sha256": "9d42a645d73b4c5bcd677cc6d89f310790876b5cfbc28a6e86ea3f49296dc84a",
+      "fetched_at": "2026-11-09T10:29:25Z",
+      "license_note": "STRING, CC BY 4.0. Subnetwork around the requested genes -- see docs/modules/data-collectors.md."
+    },
+    {
+      "name": "dgidb_donepezil",
+      "path": "data/raw/extended/dgidb_donepezil.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "85626ca2d3e5c7a91507536307d6894d85c2eb8418f5c8997829623155fb6558",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_rivastigmine",
+      "path": "data/raw/extended/dgidb_rivastigmine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "ea84899e7f36b7a2208ee82b793d5c8ea4577c6c5c35e999f62edf56b4dbeec5",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_galantamine",
+      "path": "data/raw/extended/dgidb_galantamine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "81338b723cb92ee17c332ac3322cf91f42bd6f009a7bf47e74e38654cabc5426",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_tacrine",
+      "path": "data/raw/extended/dgidb_tacrine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "5c8443f41f69be0ef3768056652fe6ca1a7d583d6dd0cfafd3f6286fd6ad2a45",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_huperzine",
+      "path": "data/raw/extended/dgidb_huperzine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "77f248e0ac79a2a6854c900b03575944fdb55fa8527efbd2bb2be776a45b903a",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_memantine",
+      "path": "data/raw/extended/dgidb_memantine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "bb0481ba7974902cff0835542191e22d2baf5d04bcb9b0361ff3977dfed8e1cf",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_brexpiprazole",
+      "path": "data/raw/extended/dgidb_brexpiprazole.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "0224485c22ce7bb4e3423ae2baff6dcb618b299705d593c4300a16ab61008e09",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_citalopram",
+      "path": "data/raw/extended/dgidb_citalopram.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "5f3403eab589d57e337d8c26ff628dcb95f238260cbc56d7eb4abb1cf1e5dc0a",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_escitalopram",
+      "path": "data/raw/extended/dgidb_escitalopram.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "27552923ac958d8622114dcac15a8c2286ddb902fbcac40db267b774b8b7a8d4",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_dextromethorphan",
+      "path": "data/raw/extended/dgidb_dextromethorphan.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "809fcf3e6e49bd9fe89f73b40bdadf8edd4d2c6f58db389fe46b02ecdaa245e5",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_bupropion",
+      "path": "data/raw/extended/dgidb_bupropion.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "49c1d20499560fcbfdaa34239a7a44b5c06cff5f636822c2932a9f962ed4629f",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_sildenafil",
+      "path": "data/raw/extended/dgidb_sildenafil.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "a4641ff87b608528f7a45cf1e158e8035a791e0c1f66e3067f6be870e1254fa1",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_metformin",
+      "path": "data/raw/extended/dgidb_metformin.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "5200a5c0b5d570d5beda6537d049f85b6a44de9cd449b17aa5e9234cdd928623",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_semaglutide",
+      "path": "data/raw/extended/dgidb_semaglutide.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "7a3d3cbbaf90596ad62b1856e8c7a92296ce4f746f9cd02eebe11def7dab8f05",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_liraglutide",
+      "path": "data/raw/extended/dgidb_liraglutide.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "58b0f376c64753134cbbea240e160cbbdd72568809b40ed4002b694ef7fc04c7",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_pioglitazone",
+      "path": "data/raw/extended/dgidb_pioglitazone.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "bc8ceaebc60ccd1fb9b7ce2262eeaa1ab796e492cf47b1e90a425914a1179209",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_rosiglitazone",
+      "path": "data/raw/extended/dgidb_rosiglitazone.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "cbbddc45ba66519746403528551b7a117b1647716bf69f27462836e13664b498",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_losartan",
+      "path": "data/raw/extended/dgidb_losartan.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "85fc30d37a39f51ea13a5e4d40fca7977c04c760e5a76542401155b9f717a3c4",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_telmisartan",
+      "path": "data/raw/extended/dgidb_telmisartan.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "e719b0a5e80a9f46de49316102507e5df2bf3c37f3babd7b6b32c20762734a3b",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_valsartan",
+      "path": "data/raw/extended/dgidb_valsartan.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "ddf244e205757da68a0c212f9ee6ddf0a5a18f08661a319383698ca69ed99c22",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_amlodipine",
+      "path": "data/raw/extended/dgidb_amlodipine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "5d036cdb08619f624f7c98ccc5f87e952b8d14a488fdd129aae4e1bae3cd410f",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_nilvadipine",
+      "path": "data/raw/extended/dgidb_nilvadipine.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "65c3d66dfcea677ad7c403acad630c4a593399880fcc02238816b7c7899d5178",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_atorvastatin",
+      "path": "data/raw/extended/dgidb_atorvastatin.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "df64896e2557c8f77b9403f78a344286f9f5a499c3d6cf36b53d28b0f96ae0fe",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_simvastatin",
+      "path": "data/raw/extended/dgidb_simvastatin.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "7e81668f85c6441d9b2807893eeb7b441bb0b3c848c35e1a240eb0416fea2050",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_bumetanide",
+      "path": "data/raw/extended/dgidb_bumetanide.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "606061ed4b92a62487183c4ab924c973cd8466a2f3705482ae489bde32915aeb",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_levetiracetam",
+      "path": "data/raw/extended/dgidb_levetiracetam.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "be176be0b7582e3cab86456672d0546ae4bc97454ea01a73511b98ae537ffb7f",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_valproic",
+      "path": "data/raw/extended/dgidb_valproic.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "3cb550dabf170777e29a297ef93c001ac800b577bc4cc93538af899201af6bb3",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_lithium",
+      "path": "data/raw/extended/dgidb_lithium.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "b5928ab06a371dd1ed797a54481bef2d0c3a637e847c3a0571dc05547347a542",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_nilotinib",
+      "path": "data/raw/extended/dgidb_nilotinib.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "7197d6394c1180bdaa614b319800e6f752a4c1043b999d737ed74071d060c01a",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_dasatinib",
+      "path": "data/raw/extended/dgidb_dasatinib.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "c60b4da9b065ccdf8cee73351f126b348a74c25f433813ce6cb179c60c074141",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_quercetin",
+      "path": "data/raw/extended/dgidb_quercetin.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "149aac2fb35a777da309253c0e859d42bdf5c5e9de53d46a5826cdefef6eee62",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_masitinib",
+      "path": "data/raw/extended/dgidb_masitinib.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "b71b5f893d90a3d9e68d70b738ac79c83280880bb0cb8b61f3c84dad68010f57",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_baricitinib",
+      "path": "data/raw/extended/dgidb_baricitinib.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "8e0fdf75e02c0446d47ff360fdd0a144eab741a36e85f146d5039941fc36a59f",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_ibuprofen",
+      "path": "data/raw/extended/dgidb_ibuprofen.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "1d9fd61b209a29eca6d7970beda39902b1298f70d2762a279e6fd42d9270e5b6",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_naproxen",
+      "path": "data/raw/extended/dgidb_naproxen.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "134c16be861b4a6189e5c05153cb07d7b61a090550702b791908f1759f535afe",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_celecoxib",
+      "path": "data/raw/extended/dgidb_celecoxib.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "d37e49b0c605e0762613cf6d044bec7ff5d15d69faf625ce12028c9953bbe7f1",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_minocycline",
+      "path": "data/raw/extended/dgidb_minocycline.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "add555cc946c5aa3969291a4b6abfd84ab1e09ea595169998ea79b3b33c83c62",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "dgidb_doxycycline",
+      "path": "data/raw/extended/dgidb_doxycycline.json",
+      "url": "https://dgidb.org/api/graphql",
+      "sha256": "f3f25e6a8df9373ef3df8a576adbb52a248502608c66a39de5f5f90e58c3e90f",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "DGIdb, CC0 / public domain."
+    },
+    {
+      "name": "ad_module",
+      "path": "data/raw/extended/ad_module.json",
+      "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+      "sha256": "2fbda2d5a8b64d1a3ce41ff4900bb8f898b8b294bc1ce6aa68e0d6515659461b",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "NCBI Gene, public domain. Curated gene list -- see docs/modules/data-collectors.md."
+    },
+    {
+      "name": "clinicaltrials_ad_studies",
+      "path": "data/raw/extended/clinicaltrials_ad_studies.json",
+      "url": "https://clinicaltrials.gov/api/v2/studies",
+      "sha256": "271ed540ef1e6c4100c9005ceb5a8476c20cb4edf380a2d12fcd1b3579e90ba3",
+      "fetched_at": "2026-11-09T10:30:31Z",
+      "license_note": "ClinicalTrials.gov, US government work, public domain."
+    }
+  ]
+}
