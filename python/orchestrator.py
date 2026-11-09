@@ -21,9 +21,10 @@ class OrchestratorConfig:
     seed: int = 1234
     chains: int = 4
     sweeps: int = 1000
-    T0: float | None = None  ##< start temperature; required by the "scalar" platform
+    T0: float | None = None  ##< start temperature; required by the "scalar" and "avx2" platforms
     T1: float | None = None  ##< end temperature; T0 >= T1 > 0
     brute_force_check: bool = False
+    synthetic_n: int | None = None  ##< solve a random instance of this many drugs instead of the real data
 
 
 class Orchestrator:
@@ -99,19 +100,25 @@ class Orchestrator:
     def analyze(self):
         """!
         @brief Stage 5: loads everything written so far and summarizes timing.
-        @return All run records collected so far, as a DataFrame.
+        @return The speedup table of every run recorded so far (benchmark_analysis.speedup_table(),
+                scalar as the baseline).
         @see docs/modules/orchestrator.md
         """
-        df = ba.load_runs()
-        return df  # TODO: ba.speedup_table(df) once there's more than one platform's data
+        return ba.speedup_table(ba.load_runs())
 
     def run(self) -> list[RunResultsMessage]:
         """!
-        @brief Runs the full pipeline: collect, consolidate, solve, validate.
+        @brief Runs the full pipeline: collect, consolidate, solve, validate. With
+               config.synthetic_n set, stages 1-2 are replaced by a random instance of that
+               size (data_collectors.synthetic_instance(); no download).
         @return Graded RunResultsMessages, one per requested platform.
         @see docs/modules/orchestrator.md
         """
-        drugs, edges, ad_module_ids = self.collect_data()
-        instance = self.build_instance(drugs, edges, ad_module_ids)
+        if self.config.synthetic_n is not None:
+            instance = dc.synthetic_instance(self.config.synthetic_n, self.config.k,
+                                             self.config.lam, seed=self.config.seed)
+        else:
+            drugs, edges, ad_module_ids = self.collect_data()
+            instance = self.build_instance(drugs, edges, ad_module_ids)
         results = self.run_modules(instance)
         return self.validate(instance, results)

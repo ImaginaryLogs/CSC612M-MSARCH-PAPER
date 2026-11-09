@@ -76,7 +76,8 @@ class Validator:
                 ties += 1
         return RunResultsMessage(
             instance_id=instance.id, platform="exact_python", seed=0, chains=0, sweeps=0,
-            best=best_sel, e_solver=best_energy, e_judge=best_energy, valid=True, ties=ties,
+            best=best_sel, e_solver=best_energy, e_judge=best_energy, valid=True,
+            n=instance.n, k=instance.k, ties=ties,
         )
 
 

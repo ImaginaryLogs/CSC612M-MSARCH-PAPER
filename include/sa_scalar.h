@@ -48,7 +48,8 @@ typedef enum {
     SA_OK = 0,
     SA_ERR_BAD_ARGUMENT,
     SA_ERR_OUT_OF_RANGE, /* a value is NaN, infinite, or too large for a float */
-    SA_ERR_NO_MEMORY
+    SA_ERR_NO_MEMORY,
+    SA_ERR_UNSUPPORTED_CPU /* the AVX2 backend was asked to run on a CPU/OS without AVX2 */
 } SaStatus;
 
 // Exposed for testing.
@@ -57,8 +58,9 @@ SaStatus sa_scalar_solve(const SaProblem *problem, const SaSettings *settings,
 
 const char *sa_status_message(SaStatus status);
 
-// Uncomment so tests can check it Philox random values against published values.
-//void sa_philox4x32_10(const uint32_t counter[4], const uint32_t key[2], uint32_t out[4]);
+// Exposed so tests can check the Philox random values against published values, and so
+// the AVX2 backend's 8-lane Philox can be checked against this scalar one.
+void sa_philox4x32_10(const uint32_t counter[4], const uint32_t key[2], uint32_t out[4]);
 
 #ifdef __cplusplus
 }

@@ -17,9 +17,10 @@ The **must-have** priority tier: everything Milestone 2 (Week 10) demos.
 - [x] `src/module_1.cpp` — **exact_cpu**: C++ brute-force oracle, pybind11-bound, built via `scripts/build_native.sh` *(done 2026-10-31)*
 - [x] `tests/test_module_1.py` — cross-checked against the independent Python oracle (`Validator.brute_force()`)
 - [ ] **Target: Nov 1 (end of Week 8)** — scalar C++ SA (swap moves), integer deterministic mode (Philox-seeded, shared accept/reject lookup table) as the reference every later platform must match decision-for-decision
-- [ ] **Target: Nov 8 (end of Week 9)** — AVX2 SA: NASM inner update loop (`ymm` registers) + a C++ intrinsics twin as a cross-check; unit-tested against the scalar loop
-- [ ] **Target: Nov 8** — cross-platform agreement test (T7): scalar vs. AVX2 vs. exact_cpu produce identical decisions for a fixed seed (`ModuleConfig.trace_steps`)
-- [ ] **Target: Nov 8** — first sequential-vs-parallel timing table for exact search and SA (`benchmark_analysis.speedup_table()`)
+- [x] **Target: Nov 8 (end of Week 9)** — AVX2 SA: NASM kernel (`ymm` registers) for the whole chain loop — g update, 8-lane Philox, 8-wide speculative accept test — in `src/asm/sa_avx2.asm`, platform `avx2` (`module_2_avx`); unit-tested against the scalar code bit for bit *(done 2026-11-09, see `docs/modules/sa-avx2.md`)*
+  - [ ] the C++ intrinsics twin as a second cross-check (the scalar backend plays that role through T7 for now)
+- [x] **Target: Nov 8** — cross-platform agreement test (T7): scalar vs. AVX2 produce identical decisions for a fixed seed (`ModuleConfig.trace_steps`) — `tests/sa_avx2_test.c`, `tests/test_avx2_sa.py` *(done 2026-11-09)*
+- [ ] **Target: Nov 8** — first sequential-vs-parallel timing table for exact search and SA (`benchmark_analysis.speedup_table()`) — SA scalar vs. AVX2 done in `bench/sa_bench.c` (results in `docs/modules/sa-avx2.md`); `speedup_table()` implemented and printed by `main.py` *(2026-11-09)*; still needs an instance big enough to time (today's candidate list gives n = 3)
 - [ ] **Target: Nov 8** — first best AD combinations for `k in {2, 3}` at two values of `lambda`
 
 ### Milestone 2 — mid-project demo (Week 10, Nov 9 – Nov 15)
@@ -43,7 +44,8 @@ The **should-have**/**optional** tier, built only once Phase 1's reference exist
 
 ### Milestone 3 — final submission (Week 13, Nov 30 – Dec 6)
 
-- [ ] `benchmark_analysis.speedup_table()` / `time_to_answer()` — filled in once there's real multi-platform timing data
+- [x] `benchmark_analysis.speedup_table()` *(done 2026-11-09)*
+- [ ] `benchmark_analysis.time_to_answer()` — needs the solvers to report when each chain first reaches the best energy
 - [ ] `literature_crosscheck()` wired to a real `collect_validation_list()` (currently raises — TODO in `data_collectors.py`)
 - [ ] `report.ipynb` — the sequential-vs-parallel narrative, figures F2–F5, tables T1–T2 (`evaluation.tex`)
 - [ ] GitHub submission: source, build/benchmark scripts, parallel-algorithm discussion, timing results

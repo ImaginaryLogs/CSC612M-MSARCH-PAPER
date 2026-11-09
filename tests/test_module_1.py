@@ -85,11 +85,11 @@ def test_exact_cpu_infeasible_instance_raises() -> None:
 
 def test_unimplemented_platform_raises() -> None:
     """!
-    @brief Platforms with no native module yet (avx2/cuda SA) must raise
+    @brief Platforms with no native module yet (cuda SA) must raise
            RuntimeError rather than returning fake data.
     """
     inst = _random_instance(n=6, k=2, seed=2)
-    config = ModuleConfig(platform="avx2", seed=1)
+    config = ModuleConfig(platform="cuda", seed=1)
 
     with pytest.raises(RuntimeError):
         run_module(inst, config)

@@ -8,7 +8,8 @@ Built as a pybind11 extension module from `include/module.hpp` + `src/module_1.c
 
 - `include/module.hpp` — the interface every backend implements (`Instance`/`Config`/`Result` structs, `energy()`, and one `solve_*()` per backend)
 - `src/module_1.cpp` — built so far: `solve_exact()`, the `exact_cpu` brute-force oracle (tries every k-combination, `O(C(n,k) * k^2)`), bound as `module_1.solve(instance, config)`
-- `src/module_2_avx.cpp` — TODO: AVX2 simulated annealing (NASM kernel + this wrapper)
+- `src/module_2.cpp` — the `scalar` simulated annealing (`src/sa_scalar.c`), bound as `module_2.solve(instance, config)`
+- `src/module_2_avx.cpp` — the `avx2` simulated annealing (`src/sa_avx2.c` + the NASM kernel `src/asm/sa_avx2.asm`), bound as `module_2_avx.solve(instance, config)`; `module_2_avx.supported()` says whether the CPU has AVX2. Same decisions as `module_2` for the same seed — see [`sa-avx2.md`](sa-avx2.md). Both SA modules share their unpack/pack code in `src/sa_binding.hpp`
 - `cuda/module_3.cu` — TODO: CUDA simulated annealing
 - CUDA-Q stays pure Python — it already has a clean API, no C++ needed
 
@@ -24,7 +25,7 @@ Built as a pybind11 extension module from `include/module.hpp` + `src/module_1.c
 
 ## `RunResultsMessage`
 
-What comes back from one solver run, whatever module produced it. `e_judge`/`valid` are left unset here — `validation.py` fills them in; a module never grades its own answer.
+What comes back from one solver run, whatever module produced it. `e_judge`/`valid` are left unset here — `validation.py` fills them in; a module never grades its own answer. `n`/`k` record the instance size (`run_module()` copies them from the `Instance`) so `benchmark_analysis.speedup_table()` can group runs by size.
 
 ## `_native_module()`
 

@@ -3,7 +3,7 @@
 [![Course](https://img.shields.io/badge/course-CSC612M-blue)](docs/paper/611M_G6_ProjectProposal.pdf)
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![C++](https://img.shields.io/badge/C%2B%2B-17-00599C?logo=cplusplus&logoColor=white)](include/module.hpp)
-[![AVX2](https://img.shields.io/badge/AVX2%20(NASM)-planned-lightgrey)](docs/TODO.md)
+[![AVX2](https://img.shields.io/badge/AVX2%20(NASM)-built-brightgreen)](docs/modules/sa-avx2.md)
 [![CUDA](https://img.shields.io/badge/CUDA-planned-76B900?logo=nvidia&logoColor=white)](docs/TODO.md)
 [![CUDA--Q](https://img.shields.io/badge/CUDA--Q-QAOA%20planned-76B900?logo=nvidia&logoColor=white)](docs/TODO.md)
 [![Build](https://img.shields.io/badge/build-CMake%20%2B%20uv-informational)](CMakeLists.txt)
@@ -18,7 +18,7 @@ Built for the CSC612M Computer Architecture integrating project (1st Term, SY 20
 
 - [`docs/overview.md`](docs/overview.md) — what the pipeline does, stage by stage, and where each platform stands today
 - [`docs/architecture.md`](docs/architecture.md) — file layout and where each piece of logic lives
-- [`docs/modules/`](docs/modules) — one doc per `python/` module
+- [`docs/modules/`](docs/modules) — one doc per `python/` module, plus [`sa-avx2.md`](docs/modules/sa-avx2.md) for the AVX2 assembly backend and its speedups
 - [`docs/TODO.md`](docs/TODO.md) — the build-out plan and schedule (C++ + AVX2 first, CUDA + CUDA-Q after Milestone 2)
 
 ## Running it
@@ -28,6 +28,8 @@ uv sync                     # Python deps
 scripts/build_native.sh     # compiles the native solver extension(s)
 uv run python/main.py --platforms exact_cpu --k 2 --brute-force-check
 ```
+
+On Windows, double-click `run.bat`. It offers the first-time setup (a `.venv`, then a CMake build that includes the AVX2 module), then a menu: scalar vs AVX2 on a random problem, the real data, the speed benchmark, the tests, and rebuild. `run.bat <options>` passes options straight to `python\main.py`.
 
 ## Proposal
 

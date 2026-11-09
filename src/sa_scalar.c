@@ -499,6 +499,7 @@ const char *sa_status_message(SaStatus status)
     case SA_ERR_BAD_ARGUMENT: return "bad argument";
     case SA_ERR_OUT_OF_RANGE: return "values are not finite or too large for a float";
     case SA_ERR_NO_MEMORY: return "out of memory";
+    case SA_ERR_UNSUPPORTED_CPU: return "this CPU or operating system does not support AVX2";
     }
     return "unknown status";
 }
