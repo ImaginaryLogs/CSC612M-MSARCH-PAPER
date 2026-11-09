@@ -29,7 +29,7 @@ void throw_for_status(SaStatus status) {
         return;
     case SA_ERR_NO_MEMORY:
         throw std::bad_alloc();
-    default:  // bad argument, or values too large for the integer scale
+    default:  // bad argument, or values that are NaN, infinite, or too large for a float
         throw std::invalid_argument(std::string("scalar SA: ") + sa_status_message(status));
     }
 }

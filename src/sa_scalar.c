@@ -20,8 +20,9 @@
  * (-fno-tree-vectorize keeps the compiler from quietly vectorizing the scalar
  * baseline that the AVX2 version is measured against.)
  *
- * SA_CHECK_G -- an optional self-check, off unless compile with -DSA_CHECK_G
- * (check if the step by step updates of g and E drift from a full recomputation every 10,000 accepted swaps)
+ * SA_CHECK_G -- an optional self-check, off unless compiled with -DSA_CHECK_G.
+ * At every refresh (every REFRESH_EVERY_ACCEPTS = 1000 accepted swaps) it checks that
+ * the step-by-step updates of g and E have not drifted from a full recomputation.
  */
 #include "sa_scalar.h"
 
