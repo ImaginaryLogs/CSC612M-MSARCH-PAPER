@@ -34,4 +34,4 @@ On Windows, double-click `run.bat`. It offers the first-time setup (a `.venv`, t
 ## Proposal
 
 [Watch the proposal video](https://drive.google.com/file/d/1FQ-T5fcMrj9heX-RddqpMa3wIlaA1rqf/view) · [Read the original proposal](docs/paper/611M_G6_ProjectProposal.pdf) 
-[Read the Midterm Update](docs/paper/CSC612_Midterm_Update.pdf)
+· [Watch the midterm milestone video](https://drive.google.com/file/d/1Q2t4tD4Glh2Z_xHcH0ZZbYz38IUtpz8q/view?usp=sharing) · [Read the Midterm Update](docs/paper/CSC612_Midterm_Update.pdf)
