@@ -1,2 +1,6 @@
 /build/
 python/*.so
+python/*.pyd
+.vs/
+out/
+__pycache__/

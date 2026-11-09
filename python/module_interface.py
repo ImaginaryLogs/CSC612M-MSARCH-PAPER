@@ -4,6 +4,7 @@
 """
 from __future__ import annotations
 
+import importlib
 import math
 import time
 from dataclasses import dataclass, field
@@ -15,8 +16,8 @@ class ModuleConfig:
     seed: int = 0
     chains: int = 1
     sweeps: int = 1000
-    T0: float | None = None  ##< None => a default schedule is used
-    T1: float | None = None
+    T0: float | None = None  ##< start temperature, energy units; required by "scalar", unused by exact search
+    T1: float | None = None  ##< end temperature; T0 >= T1 > 0
     trace_steps: int = 0  ##< >0 only for the cross-platform agreement check
 
 
@@ -44,21 +45,29 @@ class RunResultsMessage:
     extra: dict = field(default_factory=dict)
 
 
-def _native_module():
+## Which compiled extension implements each platform. Platforms not listed here have
+#  no native module yet (avx2, cuda, exact_cuda).
+_NATIVE_MODULES = {"exact_cpu": "module_1", "scalar": "module_2"}
+
+
+def _native_module(platform: str):
     """!
-    @brief Imports module_1, the pybind11 extension built from include/module.hpp + src/module_1.cpp.
+    @brief Imports the pybind11 extension that implements a platform.
+    @param platform Which backend is wanted, e.g. "exact_cpu" or "scalar".
     @return The native extension module.
     @see docs/modules/module-interface.md
     """
+    name = _NATIVE_MODULES.get(platform)
+    if name is None:
+        raise NotImplementedError(f"platform {platform!r} has no native module yet")
     try:
-        import module_1
+        return importlib.import_module(name)
     except ImportError as exc:
         raise NotImplementedError(
-            "module_1 (the pybind11 extension) is not built -- run "
+            f"{name} (the pybind11 extension for {platform!r}) is not built -- run "
             "scripts/build_native.sh, which compiles it and copies it next to "
             "python/main.py"
         ) from exc
-    return module_1
 
 
 def run_module(instance, config: ModuleConfig) -> RunResultsMessage:
@@ -75,10 +84,13 @@ def run_module(instance, config: ModuleConfig) -> RunResultsMessage:
         from quantum import qaoa  # TODO: python/quantum/qaoa.py, next pass
         result = qaoa.solve(instance, config)
     else:
-        native = _native_module()
-        result = native.solve(instance, config)  # TODO: exact call shape once module.hpp exists
+        native = _native_module(config.platform)
+        result = native.solve(instance, config)
 
     t_total = time.perf_counter() - t_start
+    extra = {"t_total": t_total}
+    if "trace" in result:  # only when config.trace_steps > 0; nested lists keep it JSON-safe
+        extra["trace"] = result["trace"].tolist()
     return RunResultsMessage(
         instance_id=instance.id,
         platform=config.platform,
@@ -93,5 +105,5 @@ def run_module(instance, config: ModuleConfig) -> RunResultsMessage:
         t_d2h=result.get("t_d2h", 0.0),
         proposals=result.get("proposals", 0),
         accepts=result.get("accepts", 0),
-        extra={"t_total": t_total},
+        extra=extra,
     )

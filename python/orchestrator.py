@@ -21,6 +21,8 @@ class OrchestratorConfig:
     seed: int = 1234
     chains: int = 4
     sweeps: int = 1000
+    T0: float | None = None  ##< start temperature; required by the "scalar" platform
+    T1: float | None = None  ##< end temperature; T0 >= T1 > 0
     brute_force_check: bool = False
 
 
@@ -74,7 +76,8 @@ class Orchestrator:
         results = []
         for platform in self.config.platforms:
             module_config = ModuleConfig(platform=platform, seed=self.config.seed,
-                                          chains=self.config.chains, sweeps=self.config.sweeps)
+                                          chains=self.config.chains, sweeps=self.config.sweeps,
+                                          T0=self.config.T0, T1=self.config.T1)
             result = run_module(instance, module_config)
             results.append(result)
         return results
