@@ -90,9 +90,7 @@ typedef struct {
 
 /*
  * Philox4x32-10: ten rounds that scramble a 128-bit counter (c0..c3) with a 64-bit key
- * (k0, k1). The four words live in local variables, not in an array, so the compiler
- * keeps them in registers for all ten rounds. (An earlier version that kept them in an
- * array took 86 ns per call; this one takes 29 ns and returns identical numbers.)
+ * (k0, k1). Output is four pseudo-random words.
  */
 void sa_philox4x32_10(const uint32_t counter[4], const uint32_t key[2], uint32_t out[4])
 {
@@ -117,13 +115,20 @@ void sa_philox4x32_10(const uint32_t counter[4], const uint32_t key[2], uint32_t
         c3 = next3;
     }
 
-    out[0] = c0;
-    out[1] = c1;
-    out[2] = c2;
-    out[3] = c3;
+    out[0] = c0;    // picks slot on the current team to swap out
+    out[1] = c1;    // picks slot of outsider drug to swap in
+    out[2] = c2;    // upper 12 bits pick one of 4096 random buckets to decide whether an uphill (increase energy) swap is accepted
+    out[3] = c3;    // unused (spare)
 }
 
-/* SAME (seed, stream, chain, index) always gives the SAME words. */
+/*
+ * The same (seed, stream, chain, index) always gives the same four words.
+ *   seed    the run's seed (SaSettings.seed); different seed gives different run
+ *   stream  0 = proposing swaps, 1 = building a chain's starting team
+ *   chain   the SA chain number
+ *   index   which draw this is within that chain and stream: the step number of the
+ *           proposal (accumulated across all sweeps), or the team slot being filled
+ */
 static Draw draw_random(uint64_t seed, uint32_t stream, uint32_t chain, uint64_t index)
 {
     const uint32_t counter[4] = {(uint32_t)index, (uint32_t)(index >> 32), chain, stream};
@@ -133,7 +138,7 @@ static Draw draw_random(uint64_t seed, uint32_t stream, uint32_t chain, uint64_t
     return d;
 }
 
-/* Maps a random 32-bit word to a random slot in the n drugs w/o modulo. */
+/* Maps a random 32-bit word to a whole number from 0 to bound-1, without a modulo. */
 static int random_below(uint32_t r, int bound)
 {
     return (int)(((uint64_t)r * (uint64_t)bound) >> 32);
@@ -141,9 +146,9 @@ static int random_below(uint32_t r, int bound)
 
 /*
  * The L table: L[m] = -ln(u) for u = (m + 0.5) / 4096.
- * Probability of accepting uphill is a function of delta energy, T (temperature),
- * and u (random number in [0, 1)): Accept if delta < T * (-ln u)
- * to avoid calling -ln(u) every step, precompute -ln(u) for 4096 buckets
+ * A swap that increases energy accepted with probability exp(-delta / T). 
+ * Drawing a random u and accepting when delta < T * (-ln u) is equivalent.
+ * To avoid calling -ln(u) every step, precompute -ln(u) for 4096 buckets
  * and access a random bucket at each step
  */
 static void build_accept_table(float table[ACCEPT_TABLE_SIZE])
@@ -166,8 +171,7 @@ static void model_destroy(Model *m)
     memset(m, 0, sizeof *m);
 }
 
-/* Copies the problem into float arrays with lambda folded in, and builds the L table.
-   Temperatures come later. The caller's arrays must stay alive for the whole run. */
+/* Copies the SaProblem into float arrays with lambda pre-multiplied, and builds the L table. */
 static SaStatus model_create(const SaProblem *p, Model *m)
 {
     memset(m, 0, sizeof *m);
