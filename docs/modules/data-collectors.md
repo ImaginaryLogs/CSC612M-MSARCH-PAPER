@@ -68,3 +68,7 @@ Nodes grouped into `n_bins` buckets of similar degree, for the degree-matched ra
 ## `build_instance()`
 
 Consolidates everything `collect_*()` produced into the `Instance` the four solvers read. Eligibility: finite z < 0 only, nothing imputed (`formulation.tex`). Every number here is either measured (from the graph) or an explicit, logged assumption (`z_max`, `seed`) — see `data_architecture.tex`'s "no hand-assigned biological numbers" rule. Builds a NetworkX graph from the given edges, restricts to the largest connected component, filters drugs to those with a finite negative z-score, and raises a clear `ValueError` rather than silently producing an infeasible instance if fewer than `k` drugs are eligible.
+
+## `synthetic_instance()`
+
+A random `Instance` of any size, for running and timing the solvers. The curated candidate list currently yields only 3 eligible drugs. Rewards are uniform in [0.1, 1) and each pair's penalty uniform in [0, 1), symmetric with a zero diagonal: the ranges `build_instance()` normalizes the real data to. The same `(n, seed)` always gives the same instance. The id is `synthetic_n{n}_k{k}_seed{seed}`, so `benchmark_analysis.speedup_table()` groups it by size. It is not biology, and no results from it are drug recommendations. Used by `main.py --synthetic N`.

@@ -6,7 +6,26 @@ Every function takes a DataFrame from `load_runs()`, so it works the same on `da
 
 ## `append_run()` / `load_runs()`
 
-One JSON line per `RunResultsMessage`; `load_runs()` returns them as a DataFrame (empty if the file doesn't exist).
+`append_run()` / `load_runs()` keep the run log: one JSON line per graded run in `data/runs.jsonl` (git-ignored). The orchestrator appends every run, so repeating a pipeline command adds more runs to compare. `load_runs()` returns them as a DataFrame (empty if the file doesn't exist).
+
+## `speedup_table(df, baseline="scalar")`
+
+`speedup_table(df, baseline="scalar")` compares each platform's kernel time with the baseline platform's. It only compares runs of the same instance with the same settings: `instance_id`, `n`, `k`, `seed`, `chains`, `sweeps`. Repeated runs of one platform count as their **median** `t_kernel`. Runs with no timing are dropped.
+
+One row per (instance, settings, platform):
+
+| Column | Meaning |
+|---|---|
+| `runs` | how many runs the row summarizes |
+| `t_kernel` | median kernel time, seconds |
+| `msteps_per_s` | millions per second of the run's `proposals`: swaps proposed for SA, combinations scored for exact search |
+| `accept_rate` | accepted / proposed swaps (SA only) |
+| `speedup` | baseline `t_kernel` ÷ this `t_kernel` (NaN when the group has no baseline run) |
+| `same_best` | whether the best team equals the baseline's (None without a baseline run) |
+
+Rows are sorted by `n`, `k`, then the baseline first. Older records without `n`/`k` fields get them from ids like `ad_combo_n3_k3_seed1234`. `main.py` prints the table for the instance it just solved, via `Orchestrator.analyze()`.
+
+`t_kernel` is the whole native solve call, so for large `n` it includes the O(n²) setup. For the annealing loop alone, and for the kernels on their own, use `bench/sa_bench.c` (see [`sa-avx2.md`](sa-avx2.md)).
 
 ## `prepare(df, tolerance=1e-6)`
 
@@ -37,16 +56,13 @@ tts         = runs_needed * t
 
 Returns one row per `(n, k, platform)` — the sweep budget with the lowest TTS. Exact platforms have `p = 1`, so their TTS is one run.
 
-Caveats: `p` is estimated from a finite number of seeds (20 by default in the script), so `p = 1` means "every run we tried hit", and the cheapest budget that reached 20/20 is picked, which slightly favours small budgets. The estimate is per run, not measured inside a chain.
+Caveats: `p` is estimated from a finite number of seeds (20 by default in the script), so `p = 1` means "every run we tried hit", and the cheapest budget that reached 20/20 is picked, which slightly favours small budgets. The estimate is per run, not measured inside a chain. This is the per-budget TTS; the in-chain version (time until a chain first reaches the best energy) is still a TODO, because the native modules don't report when each chain first reaches it yet (`evaluation.tex`, "Three ways to measure speed").
 
-## `speedup_table(df, baseline="scalar", metric="t_kernel" | "tts")`
+## `speedup_tts(df, baseline="scalar", target=0.99)`
 
-One row per `(n, k, platform)`: `time`, the baseline's `time` at the same size, and `speedup = baseline_time / time` (> 1 means faster than the baseline; NaN if the baseline has no runs at that size).
+One row per `(n, k, platform)`: `time` (the TTS from `time_to_answer()`), the baseline's `time` at the same size, and `speedup = baseline_time / time` (> 1 means faster than the baseline; NaN if the baseline has no runs at that size).
 
-- `metric="t_kernel"` pools every run of a platform into one median, so filter `df` to the configuration you want to compare first (e.g. one sweep budget).
-- `metric="tts"` compares time to answer, which is the fair comparison between an exact solver and a heuristic.
-
-`scripts/bench_synthetic.py` uses `baseline="exact_cpu"`: how much faster SA reaches the answer than exhaustive search. Once `avx2`/`cuda` exist, `speedup_table(df, baseline="scalar")` at a fixed sweep budget is the sequential-vs-parallel table (T2): same algorithm, same number of proposals, different hardware.
+`scripts/bench_synthetic.py` and `scripts/real_data_check.py` use `baseline="exact_cpu"`: how much faster SA reaches the answer than exhaustive search. Time to answer is the fair comparison between an exact solver and a heuristic. Once `avx2`/`cuda` exist, `speedup_table(df, baseline="scalar")` at a fixed sweep budget is the sequential-vs-parallel table (T2): same algorithm, same number of proposals, different hardware.
 
 ## Example output
 

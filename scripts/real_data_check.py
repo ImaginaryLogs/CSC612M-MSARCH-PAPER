@@ -451,7 +451,7 @@ def main() -> None:
     table(ba.time_to_answer(timed))
     out("Speedup over exact_cpu (> 1: faster than exact search):")
     out()
-    table(ba.speedup_table(timed, baseline="exact_cpu", metric="tts"))
+    table(ba.speedup_tts(timed, baseline="exact_cpu"))
 
     studies = trial_studies()
     co = pair_trials(studies, base.drug_ids)

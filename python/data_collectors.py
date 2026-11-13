@@ -410,3 +410,33 @@ def build_instance(drugs: list[Drug], graph_edges: list[tuple[str, str]], ad_mod
         sources={"ad_module_size": len(ad_module_in_graph), "graph_nodes": graph.number_of_nodes(),
                   "graph_edges": graph.number_of_edges(), "z_max": z_max, "seed": seed},
     )
+
+
+def synthetic_instance(n: int, k: int, lam: float = 1.0, seed: int = 0) -> Instance:
+    """!
+    @brief A random instance with the shape and value ranges build_instance() produces, for
+           running and timing the solvers at sizes the curated candidate list can't reach
+           yet (it gives n = 3). Not biology, and no network access.
+    Rewards are uniform in [0.1, 1) and each pair's penalty uniform in [0, 1), symmetric
+    with a zero diagonal -- the ranges build_instance() normalizes the real w and P to.
+    @param n Number of drugs, at least 1.
+    @param k Team size, 0 <= k <= n.
+    @param lam Weight on the overlap penalty.
+    @param seed RNG seed; the same (n, seed) always gives the same instance.
+    @return An Instance with id "synthetic_n{n}_k{k}_seed{seed}" and placeholder drug ids.
+    @see docs/modules/data-collectors.md
+    """
+    if n < 1:
+        raise ValueError(f"a synthetic instance needs at least 1 drug, got n={n}")
+    if not 0 <= k <= n:
+        raise ValueError(f"need 0 <= k <= n, got n={n}, k={k}")
+    rng = np.random.default_rng(seed)
+    w = (0.1 + 0.9 * rng.random(n)).astype(np.float32)
+    upper = np.triu(rng.random((n, n)), 1)
+    P = (upper + upper.T).astype(np.float32)
+    return Instance(
+        id=f"synthetic_n{n}_k{k}_seed{seed}",
+        n=n, k=k, lam=lam, w=w, P=P,
+        drug_ids=[f"synthetic_{i}" for i in range(n)],
+        sources={"synthetic": True, "seed": seed},
+    )

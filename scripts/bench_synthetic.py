@@ -131,11 +131,11 @@ def main() -> None:
     show("Time to answer with 99% probability (best sweep budget per platform)",
          ba.time_to_answer(df), args.tables_dir, "time_to_answer")
     show("Speedup over exact_cpu, by time to answer (> 1: faster than exact search)",
-         ba.speedup_table(df, baseline="exact_cpu", metric="tts"), args.tables_dir, "speedup_tts")
+         ba.speedup_tts(df, baseline="exact_cpu"), args.tables_dir, "speedup_tts")
     longest = max(args.sweeps)
     one_budget = df[(df["platform"] != "scalar") | (df["sweeps"] == longest)]
     show(f"Speedup over exact_cpu, one run each (scalar at {longest} sweeps)",
-         ba.speedup_table(one_budget, baseline="exact_cpu", metric="t_kernel"), args.tables_dir,
+         ba.speedup_table(one_budget, baseline="exact_cpu"), args.tables_dir,
          "speedup_kernel")
     print(f"\nruns appended to {args.out.relative_to(REPO_ROOT) if args.out.is_relative_to(REPO_ROOT) else args.out}")
 

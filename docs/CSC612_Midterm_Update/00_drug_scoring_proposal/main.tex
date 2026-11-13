@@ -1,0 +1,53 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[most]{tcolorbox}
+\usepackage[hidelinks]{hyperref}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\bfseries,
+  commentstyle=\itshape\color{gray},
+  columns=fullflexible,
+  frame=single,
+  breaklines=true,
+  language=C++
+}
+
+% Marks items the authors must confirm before submission.
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+% "In plain words" boxes for readers new to the biology or quantum parts.
+\newtcolorbox{plain}{colback=blue!4,colframe=green!45!black,
+  fonttitle=\bfseries,title=In plain words,breakable}
+
+\title{MSARCH -- Project Specifications\\[4pt]
+\large GPU-Accelerated Network Screening for Alzheimer's Disease\\
+Drug Repurposing, with an Optional Simulated-Quantum Drug-Combination Benchmark}
+\date{September 2026}
+
+\begin{document}
+
+\maketitle
+
+    \input{00_drug_scoring_proposal/parts/00-abstract}
+    \input{parts/01-introduction}
+    \input{parts/02-rrl}
+    \input{parts/03-problem-gap}
+    \input{parts/04-methodology}   % Sections 4-6: Methodology, Platform, Milestones
+    % References (course outline item 4). Swap to IEEEtran if your TeX install has it.
+    \bibliographystyle{ieeetr}
+    \bibliography{refs}
+
+    \appendix
+    \input{parts/A-appendix}
+
+\end{document}

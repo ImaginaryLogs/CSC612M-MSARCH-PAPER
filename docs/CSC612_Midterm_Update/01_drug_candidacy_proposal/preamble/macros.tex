@@ -1,0 +1,29 @@
+% ---------- Boxes ----------
+% "In plain words" box, same role as in the sister (network-screening) specification.
+\newtcolorbox{plainwords}{colback=gray!6,colframe=gray!55,boxrule=0.5pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\small,title=In plain words}
+
+% Design recommendation box: every significant design choice is stated in one of these.
+\newtcolorbox{decision}[1]{colback=blue!3,colframe=blue!45!green,boxrule=0.5pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,fonttitle=\bfseries\small,title={Decision #1}}
+
+% Source-status tags: distinguish what is established by a source from what is proposed here.
+\newcommand{\established}{\textsc{[established]}}
+\newcommand{\proposed}{\textsc{[proposed]}}
+\newcommand{\todo}[1]{\textcolor{red!70!black}{[TODO: #1]}}
+
+% Priority tags
+\newcommand{\must}{\textbf{MUST}}
+\newcommand{\should}{\textbf{SHOULD}}
+\newcommand{\optional}{\textbf{OPTIONAL}}
+\newcommand{\outscope}{\textbf{OUT}}
+
+% ---------- Math ----------
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\bx}{\mathbf{x}}
+\newcommand{\Sel}{\mathcal{S}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+% ---------- Code ----------
+\lstset{basicstyle=\ttfamily\footnotesize,columns=fullflexible,keepspaces=true,breaklines=true,frame=single,rulecolor=\color{gray!50},xleftmargin=4pt,xrightmargin=4pt}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\setlength{\emergencystretch}{3em}

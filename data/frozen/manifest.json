@@ -10,58 +10,58 @@
     },
     {
       "name": "dgidb_donepezil",
-      "path": "data/raw/dgidb_donepezil.json",
+      "path": "data\\raw\\dgidb_donepezil.json",
       "url": "https://dgidb.org/api/graphql",
-      "sha256": "85626ca2d3e5c7a91507536307d6894d85c2eb8418f5c8997829623155fb6558",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "633931f45f94ba177dab398c105cd18c6e240a89b22e4eb1ad9d304699e7abd0",
+      "fetched_at": "2026-11-09T12:59:45Z",
       "license_note": "DGIdb, CC0 / public domain."
     },
     {
       "name": "dgidb_rivastigmine",
-      "path": "data/raw/dgidb_rivastigmine.json",
+      "path": "data\\raw\\dgidb_rivastigmine.json",
       "url": "https://dgidb.org/api/graphql",
-      "sha256": "ea84899e7f36b7a2208ee82b793d5c8ea4577c6c5c35e999f62edf56b4dbeec5",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "6f0a3c83389e1cdea6b78559c830b54f67dbb7027103982a77dad4632f7a769f",
+      "fetched_at": "2026-11-09T12:59:45Z",
       "license_note": "DGIdb, CC0 / public domain."
     },
     {
       "name": "dgidb_galantamine",
-      "path": "data/raw/dgidb_galantamine.json",
+      "path": "data\\raw\\dgidb_galantamine.json",
       "url": "https://dgidb.org/api/graphql",
-      "sha256": "81338b723cb92ee17c332ac3322cf91f42bd6f009a7bf47e74e38654cabc5426",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "4b454652a9526ee9df9b3a5333e5127113c69fa48882b113c3c84b59f3336e85",
+      "fetched_at": "2026-11-09T13:00:02Z",
       "license_note": "DGIdb, CC0 / public domain."
     },
     {
       "name": "dgidb_memantine",
-      "path": "data/raw/dgidb_memantine.json",
+      "path": "data\\raw\\dgidb_memantine.json",
       "url": "https://dgidb.org/api/graphql",
-      "sha256": "bb0481ba7974902cff0835542191e22d2baf5d04bcb9b0361ff3977dfed8e1cf",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "63a9553750c2be9951babccb36d97518364199ac9b8a40ed3d2f8969730453be",
+      "fetched_at": "2026-11-09T13:00:13Z",
       "license_note": "DGIdb, CC0 / public domain."
     },
     {
       "name": "dgidb_sildenafil",
-      "path": "data/raw/dgidb_sildenafil.json",
+      "path": "data\\raw\\dgidb_sildenafil.json",
       "url": "https://dgidb.org/api/graphql",
-      "sha256": "a4641ff87b608528f7a45cf1e158e8035a791e0c1f66e3067f6be870e1254fa1",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "6d1672d4e55aa7eba6a06995c82a006b97eb4d03476f6d27755a9c4bb6cc40f9",
+      "fetched_at": "2026-11-09T13:00:27Z",
       "license_note": "DGIdb, CC0 / public domain."
     },
     {
       "name": "ad_module",
-      "path": "data/raw/ad_module.json",
+      "path": "data\\raw\\ad_module.json",
       "url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-      "sha256": "2fbda2d5a8b64d1a3ce41ff4900bb8f898b8b294bc1ce6aa68e0d6515659461b",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "bf28a3a4d3fbe239d5d9189c91de8bfe3c99523031d86d60eb045f466fe76afc",
+      "fetched_at": "2026-11-09T13:00:40Z",
       "license_note": "NCBI Gene, public domain. Curated gene list -- see docs/modules/data-collectors.md."
     },
     {
       "name": "interactome_string",
-      "path": "data/raw/interactome_string.tsv",
+      "path": "data\\raw\\interactome_string.tsv",
       "url": "https://string-db.org/api/tsv/network",
-      "sha256": "459611a86fbd30a9b36231f7b917c23a066d483a67da8f0ed30d6b73a319504d",
-      "fetched_at": "2026-10-29T08:44:44Z",
+      "sha256": "71381e1fadc199a5b75a5048c0faea057c7504d0b9539be939db365516d67a78",
+      "fetched_at": "2026-11-09T13:00:52Z",
       "license_note": "STRING, CC BY 4.0. Subnetwork around the requested genes -- see docs/modules/data-collectors.md."
     }
   ]

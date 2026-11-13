@@ -1,0 +1,32 @@
+\section{Limitations and Future Work}
+\label{app:limitations}
+
+\subsection{Limitations of the approach}
+
+\begin{itemize}
+\item \textbf{Incomplete interactome.} Well-studied proteins have more known interactions, which pulls their drugs closer to everything. Comparing with random look-alike drugs (the $z$-score) reduces this bias but does not remove it.
+\item \textbf{The scoring rule is a proxy.} Complementary exposure was found in hypertension and cancer combinations \cite{cheng2019combinations}; we assume it carries over to AD. Our objective rewards that pattern; it does not predict efficacy, synergy or safety.
+\item \textbf{Weak validation.} Very few AD combinations have trial results, so we check patterns (complementary exposure, comparison with random teams), not outcomes.
+\item \textbf{Simulated quantum computer.} Results show answer quality on a noise-free simulator. They do not show how a real, noisy quantum computer would do, and they do not show any speed advantage.
+\item \textbf{One GPU and one CPU.} Speedups are specific to the GTX 1660 and our CPU; another machine would give different numbers, though the reasons behind them should carry over.
+\end{itemize}
+
+\subsection{Features cut to keep the project finishable}
+
+The following were considered during planning and cut because three students, two of them new to CUDA and to optimization, have one term. Each is a natural next step, and the shared problem-file format means none of them would require changes to the solvers already built.
+
+\begin{longtable}{>{\raggedright\arraybackslash}p{3.3cm}>{\raggedright\arraybackslash}p{4.4cm}>{\raggedright\arraybackslash}p{6.2cm}}
+\toprule
+Cut feature & Why cut & How it would be added \\
+\midrule
+\endhead
+Safety and effectiveness information & Needs several extra datasets, each with its own caveats; adds data work without adding parallel-computing content. & As extra terms in the same energy, so solvers stay unchanged: (1) known dangerous drug pairs from DDInter 2.0 \cite{ddinter2} as forbidden swaps; (2) anticholinergic burden, which worsens cognition in older adults, from the ACB scale \cite{boustani2008acb} as a per-drug penalty; (3) blood--brain-barrier permeability from B3DB \cite{meng2021b3db} as a filter; (4) clinical-trial phase as a small bonus, switched off whenever trials are used for validation; (5) adverse-event signals from TWOSIDES \cite{tatonetti2012twosides} or SIDER \cite{kuhn2016sider} only as a sensitivity check, since they are noisy. \\
+Splitting large problems for QAOA (decomposition) & QAOA is limited to about 28 drugs on this GPU; splitting is only needed beyond that, and it is a project of its own. & Keep the current best team, add $m-k$ other drugs, and solve that $m$-drug sub-problem exactly or with QAOA; repeat. Because the team is always inside the sub-problem, its score is exact and never gets worse. Related to qbsolv-style decomposition \cite{booth2017partitioning}. \\
+QAOA that never gives invalid answers (XY mixer, Dicke state) & The starting-state circuit is the hardest piece of quantum code in the plan. & Kept as a stretch goal (\Cref{app:quantum}); otherwise future work \cite{hadfield2019qaoa,wang2020xy,bartschi2019dicke,cook2020kvertex}. \\
+GPU check of all $2^n$ yes/no patterns & A Python check up to $n=16$ is enough to test the penalty proof; the GPU version would only extend it. & A Gray-code kernel (one bit changes per step) reusing the exact-search reduction. \\
+Other search methods (parallel tempering, tabu search) and an SA version that uses the penalty & Each would need its own three implementations; one algorithm done carefully is a cleaner comparison. & Parallel tempering \cite{earl2005parallel} reuses the SA kernels plus an exchange step between chains at different temperatures. \\
+Other parallel layouts (8 chains per \texttt{ymm} register; multi-core OpenMP $\times$ AVX2) & Extra experiments, not needed for the course comparison. & The 8-chain layout needs \texttt{vpgatherdd} for the scattered reads and likely helps only for small $n$. \\
+Robustness to other AD gene lists or other interactomes & Data work rather than parallel-computing work. & Re-run the pipeline with the sister project's alternative modules and graphs; compare chosen combinations. \\
+Real quantum hardware; ``at most $k$'' drugs; synergy and dose prediction & No access; or no reliable AD data. & Out of scope for this project. \\
+\bottomrule
+\end{longtable}

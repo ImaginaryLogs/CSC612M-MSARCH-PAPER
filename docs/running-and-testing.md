@@ -315,7 +315,7 @@ To analyse the records yourself:
 import sys; sys.path.insert(0, "python")
 import benchmark_analysis as ba
 df = ba.load_runs(ba.REPO_ROOT / "data" / "bench_runs.jsonl")
-ba.quality_table(df); ba.time_to_answer(df); ba.speedup_table(df, baseline="exact_cpu", metric="tts")
+ba.quality_table(df); ba.time_to_answer(df); ba.speedup_tts(df, baseline="exact_cpu")
 ```
 
 ## 7. Real biological data with more drugs

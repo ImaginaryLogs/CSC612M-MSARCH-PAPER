@@ -16,7 +16,7 @@ class ModuleConfig:
     seed: int = 0
     chains: int = 1
     sweeps: int = 1000
-    T0: float | None = None  ##< start temperature, energy units; required by "scalar", unused by exact search
+    T0: float | None = None  ##< start temperature, energy units; required by "scalar" and "avx2", unused by exact search
     T1: float | None = None  ##< end temperature; T0 >= T1 > 0
     trace_steps: int = 0  ##< >0 only for the cross-platform agreement check
 
@@ -36,6 +36,8 @@ class RunResultsMessage:
     e_solver: float
     e_judge: float = math.nan
     valid: bool = False
+    n: int = 0  ##< drugs in the instance (0 = not recorded, as in records written before this field)
+    k: int = 0  ##< team size
     ties: int = 0
     t_kernel: float = 0.0
     t_h2d: float = 0.0
@@ -46,8 +48,8 @@ class RunResultsMessage:
 
 
 ## Which compiled extension implements each platform. Platforms not listed here have
-#  no native module yet (avx2, cuda, exact_cuda).
-_NATIVE_MODULES = {"exact_cpu": "module_1", "scalar": "module_2"}
+#  no native module yet (cuda, exact_cuda).
+_NATIVE_MODULES = {"exact_cpu": "module_1", "scalar": "module_2", "avx2": "module_2_avx"}
 
 
 def _native_module(platform: str):
@@ -99,6 +101,8 @@ def run_module(instance, config: ModuleConfig) -> RunResultsMessage:
         sweeps=config.sweeps,
         best=sorted(result["best"]),
         e_solver=result["e_solver"],
+        n=instance.n,
+        k=instance.k,
         ties=result.get("ties", 0),
         t_kernel=result.get("t_kernel", 0.0),
         t_h2d=result.get("t_h2d", 0.0),
