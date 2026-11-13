@@ -31,7 +31,7 @@ class Drug:
     name: str
     targets: list[str] = field(default_factory=list)  ##< Entrez gene IDs, in the interactome
     z_score: float | None = None                      ##< closeness to the AD module; None = not yet scored
-    source: str = ""                                   ##< citation, e.g. "cummings2025pipeline"
+    source: str = ""                                  ##< citation, e.g. "cummings2025pipeline"
 
 
 @dataclass
@@ -101,10 +101,11 @@ CANONICAL_AD_GENES = [
 ]
 
 
-def collect_ad_module(raw_dir: Path = RAW_DIR) -> dict[str, str]:
+def collect_ad_module(raw_dir: Path = RAW_DIR, manifest_path: Path = MANIFEST_PATH) -> dict[str, str]:
     """!
     @brief Resolves CANONICAL_AD_GENES to Entrez Gene IDs via NCBI and caches the mapping.
     @param raw_dir Directory to cache the raw response in.
+    @param manifest_path Provenance manifest to record the source in.
     @return Mapping of gene symbol to Entrez Gene ID (None where unresolved).
     @see docs/modules/data-collectors.md
     """
@@ -115,15 +116,18 @@ def collect_ad_module(raw_dir: Path = RAW_DIR) -> dict[str, str]:
         dest.write_text(json.dumps(mapping, indent=2, sort_keys=True))
     mapping = json.loads(dest.read_text())
     record_source("ad_module", dest, url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
-                   license_note="NCBI Gene, public domain. Curated gene list -- see docs/modules/data-collectors.md.")
+                   license_note="NCBI Gene, public domain. Curated gene list -- see docs/modules/data-collectors.md.",
+                   manifest_path=manifest_path)
     return mapping
 
 
-def collect_drug_targets(drugs: list[Drug], raw_dir: Path = RAW_DIR) -> list[Drug]:
+def collect_drug_targets(drugs: list[Drug], raw_dir: Path = RAW_DIR,
+                          manifest_path: Path = MANIFEST_PATH) -> list[Drug]:
     """!
     @brief Queries DGIdb for each drug's gene targets and fills in Drug.targets as Entrez IDs, in place.
     @param drugs Drugs to query; each one's .targets is mutated in place.
     @param raw_dir Directory to cache each drug's raw response in.
+    @param manifest_path Provenance manifest to record each source in.
     @return The same drugs list, for chaining.
     @see docs/modules/data-collectors.md
     """
@@ -149,18 +153,20 @@ def collect_drug_targets(drugs: list[Drug], raw_dir: Path = RAW_DIR) -> list[Dru
         symbol_to_id = resolve_symbols(gene_symbols)
         drug.targets = [entrez_id for entrez_id in symbol_to_id.values() if entrez_id]
         record_source(f"dgidb_{drug.name.lower()}", dest, url=url,
-                       license_note="DGIdb, CC0 / public domain.")
+                       license_note="DGIdb, CC0 / public domain.", manifest_path=manifest_path)
     return drugs
 
 
 def collect_interactome(gene_symbols: list[str], raw_dir: Path = RAW_DIR,
-                         add_nodes: int = 10, required_score: int = 400) -> list[tuple[str, str]]:
+                         add_nodes: int = 10, required_score: int = 400,
+                         manifest_path: Path = MANIFEST_PATH) -> list[tuple[str, str]]:
     """!
     @brief Fetches a STRING-db subnetwork around gene_symbols and returns an (entrez_id, entrez_id) edge list.
     @param gene_symbols Seed genes (drug targets + AD module) the subnetwork is built around.
     @param raw_dir Directory to cache the raw STRING response in.
     @param add_nodes Extra interaction partners STRING adds for connectivity.
     @param required_score Minimum STRING confidence (0-1000) for an edge to be included.
+    @param manifest_path Provenance manifest to record the source in.
     @return List of (entrez_id, entrez_id) edges.
     @see docs/modules/data-collectors.md
     """
@@ -189,7 +195,8 @@ def collect_interactome(gene_symbols: list[str], raw_dir: Path = RAW_DIR,
              if symbol_to_id.get(a) and symbol_to_id.get(b)]
 
     record_source("interactome_string", dest, url=url,
-                   license_note="STRING, CC BY 4.0. Subnetwork around the requested genes -- see docs/modules/data-collectors.md.")
+                   license_note="STRING, CC BY 4.0. Subnetwork around the requested genes -- see docs/modules/data-collectors.md.",
+                   manifest_path=manifest_path)
     return edges
 
 
@@ -204,7 +211,7 @@ def collect_candidate_list() -> list[Drug]:
         Drug("DB00989", "rivastigmine", source="approved AD drug"),
         Drug("DB00674", "galantamine", source="approved AD drug"),
         Drug("DB01043", "memantine", source="approved AD drug"),
-        Drug("DB00820", "sildenafil", source="fang2021sildenafil (network-based repurposing hit)"),
+        Drug("DB00203", "sildenafil", source="fang2021sildenafil (network-based repurposing hit)"),
     ]
     # TODO: extend from the full 2025/2026 pipeline review tables.
 

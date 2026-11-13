@@ -5,7 +5,7 @@
  *   cc -std=c99 -O2 -fno-tree-vectorize -Wall -Wextra -pedantic -Iinclude \
  *      src/sa_scalar.c tests/sa_scalar_test.c -lm -o sa_scalar_test && ./sa_scalar_test
  *
- * Add -DSA_CHECK_G to the build to also rebuild g and E from scratch every 10,000
+ * Add -DSA_CHECK_G to the build to also rebuild g and E from scratch every 1,000
  * accepted swaps and abort if they have drifted (paper test T9).
  */
 #include "sa_scalar.h"

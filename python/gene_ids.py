@@ -12,10 +12,8 @@ import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 CACHE_PATH = REPO_ROOT / "data" / "raw" / "gene_ids_cache.json"
-
 EUTILS_ESEARCH = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 NCBI_RATE_LIMIT_SECONDS = 0.35  # ~3 req/s, polite for the unauthenticated eutils limit
-
 
 def _load_cache() -> dict:
     if CACHE_PATH.exists():
@@ -26,7 +24,6 @@ def _load_cache() -> dict:
 def _save_cache(cache: dict) -> None:
     CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
     CACHE_PATH.write_text(json.dumps(cache, indent=2, sort_keys=True))
-
 
 def resolve_symbol(symbol: str, cache: dict | None = None) -> str | None:
     """!
@@ -67,8 +64,7 @@ def symbol_of(entrez_id: str, cache: dict | None = None) -> str | None:
     """
     cache = cache if cache is not None else _load_cache()
     for symbol, resolved_id in cache.items():
-        if resolved_id == entrez_id:
-            return symbol
+        if resolved_id == entrez_id: return symbol
     return None
 
 

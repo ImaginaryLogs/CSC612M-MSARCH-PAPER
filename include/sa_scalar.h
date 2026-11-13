@@ -52,14 +52,15 @@ typedef enum {
     SA_ERR_UNSUPPORTED_CPU /* the AVX2 backend was asked to run on a CPU/OS without AVX2 */
 } SaStatus;
 
-// Exposed for testing.
+/* Runs every chain and fills result. trace may be NULL when trace_steps is 0. */
 SaStatus sa_scalar_solve(const SaProblem *problem, const SaSettings *settings,
                          SaResult *result, uint8_t *trace);
 
 const char *sa_status_message(SaStatus status);
 
-// Exposed so tests can check the Philox random values against published values, and so
-// the AVX2 backend's 8-lane Philox can be checked against this scalar one.
+/* Philox4x32-10, exposed so tests can check its output against the published
+   known-answer values (Salmon et al., 2011), and so the AVX2 backend's 8-lane Philox
+   can be checked against this scalar one. */
 void sa_philox4x32_10(const uint32_t counter[4], const uint32_t key[2], uint32_t out[4]);
 
 #ifdef __cplusplus

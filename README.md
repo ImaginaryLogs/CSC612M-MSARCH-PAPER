@@ -19,15 +19,20 @@ Built for the CSC612M Computer Architecture integrating project (1st Term, SY 20
 - [`docs/overview.md`](docs/overview.md) — what the pipeline does, stage by stage, and where each platform stands today
 - [`docs/architecture.md`](docs/architecture.md) — file layout and where each piece of logic lives
 - [`docs/modules/`](docs/modules) — one doc per `python/` module, plus [`sa-avx2.md`](docs/modules/sa-avx2.md) for the AVX2 assembly backend and its speedups
+- [`docs/running-and-testing.md`](docs/running-and-testing.md) — build, run, test: inputs, outputs, and files written
+- [`docs/real-data-check.md`](docs/real-data-check.md) — SA vs exact on real data with 38 candidate drugs, and how the rankings compare with known combinations
 - [`docs/TODO.md`](docs/TODO.md) — the build-out plan and schedule (C++ + AVX2 first, CUDA + CUDA-Q after Milestone 2)
 
 ## Running it
 
 ```sh
-uv sync                     # Python deps
+uv sync --group dev         # Python deps
 scripts/build_native.sh     # compiles the native solver extension(s)
-uv run python/main.py --platforms exact_cpu --k 2 --brute-force-check
+uv run python/main.py --platforms exact_cpu scalar --k 2 --t0 1.0 --t1 0.01 --brute-force-check
+uv run pytest -q tests      # Python tests; C tests: (cd build && ctest)
 ```
+
+See [`docs/running-and-testing.md`](docs/running-and-testing.md) for every input, the expected terminal output, the files a run writes, and how to check the solvers against the exact answer.
 
 On Windows, double-click `run.bat`. It offers the first-time setup (a `.venv`, then a CMake build that includes the AVX2 module), then a menu: scalar vs AVX2 on a random problem, the real data, the speed benchmark, the tests, and rebuild. `run.bat <options>` passes options straight to `python\main.py`.
 

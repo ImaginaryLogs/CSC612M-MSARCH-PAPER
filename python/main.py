@@ -49,8 +49,20 @@ def main() -> None:
     orchestrator = Orchestrator(config)
     results = orchestrator.run()
     for r in results:
-        print(f"{r.platform:10s} best={r.best} e_solver={r.e_solver:.4f} "
-              f"e_judge={r.e_judge:.4f} valid={r.valid}")
+        print(f"{r.platform:10s} best={r.best} e_solver={r.e_solver:.4f} e_judge={r.e_judge:.4f} valid={r.valid}")
+
+    # Timing for this instance and these settings, over every run recorded so far
+    # (data/runs.jsonl), so repeating the command adds runs to the medians.
+    if results:
+        table = orchestrator.analyze()
+        mine = table[(table["instance_id"] == results[0].instance_id)
+                     & (table["seed"] == config.seed) & (table["chains"] == config.chains)
+                     & (table["sweeps"] == config.sweeps)]
+        if not mine.empty:
+            print(f"\nspeedup vs scalar (n={mine['n'].iloc[0]}, k={mine['k'].iloc[0]}, "
+                  f"median of every recorded run):")
+            print(mine[["platform", "runs", "t_kernel", "msteps_per_s", "accept_rate", "speedup",
+                        "same_best"]].to_string(index=False))
 
     # Timing for this instance and these settings, over every run recorded so far
     # (data/runs.jsonl), so repeating the command adds runs to the medians.

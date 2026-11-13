@@ -1,0 +1,187 @@
+candidates:
+  - drug_id: &donepezil "donepezil"
+    mechanism_class: &chei "cholinesterase inhibitor"
+    candidate_reason: "approved AD drug"
+  - drug_id: &rivastigmine "rivastigmine"
+    mechanism_class: *chei
+    candidate_reason: "approved AD drug"
+  - drug_id: &galantamine "galantamine"
+    mechanism_class: *chei
+    candidate_reason: "approved AD drug"
+  - drug_id: &tacrine "tacrine"
+    mechanism_class: *chei
+    candidate_reason: "first approved AD drug, withdrawn (hepatotoxicity)"
+  - drug_id: &huperzine "huperzine"
+    mechanism_class: *chei
+    candidate_reason: "huperzine A, AD trials"
+  - drug_id: &memantine "memantine"
+    mechanism_class: &nmda "NMDA antagonist"
+    candidate_reason: "approved AD drug"
+  - drug_id: &brexpiprazole "brexpiprazole"
+    mechanism_class: "atypical antipsychotic"
+    candidate_reason: "approved for AD agitation (2023)"
+  - drug_id: &citalopram "citalopram"
+    mechanism_class: &ssri "SSRI"
+    candidate_reason: "AD agitation trials (CitAD)"
+  - drug_id: &escitalopram "escitalopram"
+    mechanism_class: *ssri
+    candidate_reason: "AD agitation trials (S-CitAD)"
+  - drug_id: &dextromethorphan "dextromethorphan"
+    mechanism_class: "NMDA / sigma-1"
+    candidate_reason: "AD agitation (AXS-05 component)"
+  - drug_id: &bupropion "bupropion"
+    mechanism_class: "NDRI / CYP2D6 inhibitor"
+    candidate_reason: "AD agitation (AXS-05 component)"
+  - drug_id: &sildenafil "sildenafil"
+    mechanism_class: "PDE5 inhibitor"
+    candidate_reason: "network-medicine repurposing hit (Fang et al. 2021)"
+  - drug_id: &metformin "metformin"
+    mechanism_class: "biguanide"
+    candidate_reason: "repurposing trials (MAP)"
+  - drug_id: &semaglutide "semaglutide"
+    mechanism_class: &glp1 "GLP-1 agonist"
+    candidate_reason: "phase 3 AD trials (evoke)"
+  - drug_id: &liraglutide "liraglutide"
+    mechanism_class: *glp1
+    candidate_reason: "AD trials (ELAD)"
+  - drug_id: &pioglitazone "pioglitazone"
+    mechanism_class: &ppar "PPAR-gamma agonist"
+    candidate_reason: "AD prevention trial (TOMMORROW)"
+  - drug_id: &rosiglitazone "rosiglitazone"
+    mechanism_class: *ppar
+    candidate_reason: "AD trials (REFLECT)"
+  - drug_id: &losartan "losartan"
+    mechanism_class: &arb "angiotensin receptor blocker"
+    candidate_reason: "vascular risk trials (rrAD, RADAR)"
+  - drug_id: &telmisartan "telmisartan"
+    mechanism_class: *arb
+    candidate_reason: "AD repurposing trials"
+  - drug_id: &valsartan "valsartan"
+    mechanism_class: *arb
+    candidate_reason: "AD repurposing candidate"
+  - drug_id: &amlodipine "amlodipine"
+    mechanism_class: &ccb "calcium channel blocker"
+    candidate_reason: "vascular risk trials (rrAD)"
+  - drug_id: &nilvadipine "nilvadipine"
+    mechanism_class: *ccb
+    candidate_reason: "AD phase 3 (NILVAD)"
+  - drug_id: &atorvastatin "atorvastatin"
+    mechanism_class: &statin "statin"
+    candidate_reason: "vascular risk trials (rrAD)"
+  - drug_id: &simvastatin "simvastatin"
+    mechanism_class: *statin
+    candidate_reason: "AD trials (CLASP)"
+  - drug_id: &bumetanide "bumetanide"
+    mechanism_class: "loop diuretic"
+    candidate_reason: "APOE4 transcriptomic repurposing hit (Taubes et al. 2021)"
+  - drug_id: &levetiracetam "levetiracetam"
+    mechanism_class: "antiepileptic"
+    candidate_reason: "AD hyperexcitability trials"
+  - drug_id: &valproic "valproic"
+    mechanism_class: "antiepileptic / HDAC inhibitor"
+    candidate_reason: "AD agitation/prevention trials"
+  - drug_id: &lithium "lithium"
+    mechanism_class: "mood stabilizer / GSK3 inhibitor"
+    candidate_reason: "AD and MCI trials"
+  - drug_id: &nilotinib "nilotinib"
+    mechanism_class: &tki "tyrosine kinase inhibitor"
+    candidate_reason: "AD phase 2"
+  - drug_id: &dasatinib "dasatinib"
+    mechanism_class: "tyrosine kinase inhibitor (senolytic)"
+    candidate_reason: "senolytic trial with quercetin (SToMP-AD)"
+  - drug_id: &quercetin "quercetin"
+    mechanism_class: "flavonoid (senolytic)"
+    candidate_reason: "senolytic trial with dasatinib (SToMP-AD)"
+  - drug_id: &masitinib "masitinib"
+    mechanism_class: *tki
+    candidate_reason: "phase 3 add-on to ChEI/memantine (AB09004)"
+  - drug_id: &baricitinib "baricitinib"
+    mechanism_class: "JAK inhibitor"
+    candidate_reason: "AD neuroinflammation trials"
+  - drug_id: &ibuprofen "ibuprofen"
+    mechanism_class: &nsaid "NSAID"
+    candidate_reason: "AD prevention trials"
+  - drug_id: &naproxen "naproxen"
+    mechanism_class: *nsaid
+    candidate_reason: "AD prevention trials (ADAPT, INTREPAD)"
+  - drug_id: &celecoxib "celecoxib"
+    mechanism_class: "NSAID (COX-2)"
+    candidate_reason: "AD prevention trial (ADAPT)"
+  - drug_id: &minocycline "minocycline"
+    mechanism_class: &tetracycline "tetracycline antibiotic"
+    candidate_reason: "AD trial (MADE)"
+  - drug_id: &doxycycline "doxycycline"
+    mechanism_class: *tetracycline
+    candidate_reason: "AD trial (with rifampin)"
+
+known_combinations:
+  - drugs: [*donepezil, *memantine]
+    classification: "plausible"
+    notes: "FDA-approved fixed-dose combination (Namzaric, Dec 2014) for moderate-severe AD"
+  - drugs: [*rivastigmine, *memantine]
+    classification: "plausible"
+    notes: "ChEI + memantine dual therapy; EFNS-ENS/EAN 2015 guideline, mixed evidence by outcome"
+  - drugs: [*galantamine, *memantine]
+    classification: "plausible"
+    notes: "ChEI + memantine dual therapy; EFNS-ENS/EAN 2015 guideline, mixed evidence by outcome"
+  - drugs: [*dextromethorphan, *bupropion]
+    classification: "plausible"
+    notes: "AXS-05 for AD agitation (ADVANCE-1, ACCORD); bupropion mainly boosts dextromethorphan via CYP2D6"
+  - drugs: [*dasatinib, *quercetin]
+    classification: "plausible"
+    notes: "senolytic combination, phase 1 feasibility trial in mild AD (Gonzales et al., Nat Med 2023; NCT04063124)"
+  - drugs: [*losartan, *amlodipine, *atorvastatin]
+    classification: "plausible"
+    notes: "intensive vascular risk reduction arm of rrAD (NCT02913664); no published efficacy result found"
+  - drugs: [*masitinib, *donepezil]
+    classification: "plausible"
+    notes: "masitinib tested as add-on to ChEI and/or memantine (AB09004, Dubois et al. 2023)"
+  - drugs: [*masitinib, *memantine]
+    classification: "plausible"
+    notes: "masitinib tested as add-on to ChEI and/or memantine (AB09004, Dubois et al. 2023)"
+  - drugs: [*donepezil, *rivastigmine]
+    classification: "redundant"
+    notes: "two cholinesterase inhibitors: same mechanism"
+  - drugs: [*donepezil, *galantamine]
+    classification: "redundant"
+    notes: "two cholinesterase inhibitors: same mechanism"
+  - drugs: [*rivastigmine, *galantamine]
+    classification: "redundant"
+    notes: "two cholinesterase inhibitors: same mechanism"
+  - drugs: [*donepezil, *tacrine]
+    classification: "redundant"
+    notes: "two cholinesterase inhibitors: same mechanism"
+  - drugs: [*losartan, *telmisartan]
+    classification: "redundant"
+    notes: "two angiotensin receptor blockers: same mechanism"
+  - drugs: [*atorvastatin, *simvastatin]
+    classification: "redundant"
+    notes: "two statins: same mechanism"
+
+trial_aliases:
+  namzaric: [*donepezil, *memantine]
+  aricept: [*donepezil]
+  exelon: [*rivastigmine]
+  razadyne: [*galantamine]
+  reminyl: [*galantamine]
+  namenda: [*memantine]
+  ebixa: [*memantine]
+  axs-05: [*dextromethorphan, *bupropion]
+  auvelity: [*dextromethorphan, *bupropion]
+  rexulti: [*brexpiprazole]
+  rybelsus: [*semaglutide]
+  ozempic: [*semaglutide]
+  victoza: [*liraglutide]
+  actos: [*pioglitazone]
+  avandia: [*rosiglitazone]
+  lipitor: [*atorvastatin]
+  zocor: [*simvastatin]
+  keppra: [*levetiracetam]
+  depakote: [*valproic]
+  valproate: [*valproic]
+  divalproex: [*valproic]
+  tasigna: [*nilotinib]
+  sprycel: [*dasatinib]
+  celebrex: [*celecoxib]
+  viagra: [*sildenafil]
+  revatio: [*sildenafil]

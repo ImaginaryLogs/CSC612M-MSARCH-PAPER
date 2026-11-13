@@ -1,7 +1,8 @@
 """!
-@brief Checks benchmark_analysis: the run log round trip and speedup_table(). Most tests
-       build run records by hand, so they need no native module; the last one times the
-       real scalar and AVX2 backends when they are built.
+@brief Checks benchmark_analysis: the run log round trip, speedup_table(), and the quality,
+       time-to-answer and TTS speedup tables. Most tests build run records by hand, so they
+       need no native module; the last one times the real scalar and AVX2 backends when they
+       are built.
 @see docs/modules/benchmark-analysis.md
 """
 from __future__ import annotations
@@ -142,6 +143,66 @@ def test_older_records_get_n_and_k_from_the_instance_id(tmp_path: Path) -> None:
     table = ba.speedup_table(old)
     assert set(table["n"]) == {40} and set(table["k"]) == {5}
     assert _row(table, "avx2")["speedup"] == pytest.approx(2.0)
+
+
+# --- Hand-made records for the quality / time-to-answer tables --------------------------
+
+def _record(platform: str, e: float, t: float, sweeps: int = 100, n: int = 20, k: int = 5,
+            proposals: int = 0, accepts: int = 0, valid: bool = True, **extra) -> dict:
+    return dict(instance_id=f"synthetic_n{n}_k{k}_seed0", platform=platform, seed=0, chains=1,
+                sweeps=sweeps, best=[], e_solver=e, e_judge=e, valid=valid, ties=0, t_kernel=t,
+                t_h2d=0.0, t_d2h=0.0, proposals=proposals, accepts=accepts, extra=dict(extra))
+
+
+def _tts_records() -> pd.DataFrame:
+    rows = [_record("exact_cpu", -2.0, 0.010, proposals=1000)]
+    # scalar at 100 sweeps: half the runs reach -2.0; at 1000 sweeps all do
+    rows += [_record("scalar", -2.0 if i % 2 == 0 else -1.5, 0.001, sweeps=100,
+                     proposals=2000, accepts=500) for i in range(4)]
+    rows += [_record("scalar", -2.0, 0.004, sweeps=1000, proposals=20000, accepts=4000)
+             for _ in range(4)]
+    return pd.DataFrame(rows)
+
+
+def test_prepare_uses_exact_energy_as_reference_and_parses_size() -> None:
+    data = ba.prepare(_tts_records())
+    assert (data["e_ref"] == -2.0).all()
+    assert data["ref_is_proven"].all()
+    assert (data["n"] == 20).all() and (data["k"] == 5).all()
+    assert math.isnan(data.loc[data["platform"] == "exact_cpu", "accept_rate"].iloc[0])
+
+
+def test_invalid_runs_never_count_as_hits() -> None:
+    df = pd.DataFrame([_record("exact_cpu", -2.0, 0.01), _record("scalar", -2.0, 0.001, valid=False)])
+    assert not ba.prepare(df).loc[1, "hit"]
+
+
+def test_quality_table_success_rates() -> None:
+    table = ba.quality_table(_tts_records()).set_index(["platform", "sweeps"])
+    assert table.loc[("scalar", 100), "success"] == 0.5
+    assert table.loc[("scalar", 1000), "success"] == 1.0
+    assert table.loc[("scalar", 100), "accept_rate"] == 0.25
+
+
+def test_time_to_answer_picks_cheapest_budget() -> None:
+    tts = ba.time_to_answer(_tts_records()).set_index("platform")
+    # 100 sweeps: p = 0.5 -> ln(0.01)/ln(0.5) = 6.64 runs * 1 ms = 6.6 ms
+    # 1000 sweeps: p = 1 -> one run of 4 ms, so 1000 sweeps wins
+    assert tts.loc["scalar", "sweeps"] == 1000
+    assert tts.loc["scalar", "tts"] == pytest.approx(0.004)
+    assert tts.loc["exact_cpu", "tts"] == pytest.approx(0.010)
+
+
+def test_speedup_tts_is_baseline_time_over_platform_time() -> None:
+    table = ba.speedup_tts(_tts_records(), baseline="scalar").set_index("platform")
+    assert table.loc["scalar", "speedup"] == pytest.approx(1.0)
+    assert table.loc["exact_cpu", "speedup"] == pytest.approx(0.4)
+
+
+def test_runs_to_target_edge_cases() -> None:
+    assert ba._runs_to_target(1.0, 0.99) == 1.0
+    assert ba._runs_to_target(0.0, 0.99) == math.inf
+    assert ba._runs_to_target(0.5, 0.99) == pytest.approx(math.log(0.01) / math.log(0.5))
 
 
 @pytest.mark.skipif(
