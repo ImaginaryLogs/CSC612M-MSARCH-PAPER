@@ -1,0 +1,14 @@
+dgidb_canididates:
+  - drug: &donepezil
+      query_name: donepezil
+      mechanism_class: cholinesterase inhibitor
+      candidate_reason: approved AD drug
+  - drug: &rivastigmine
+      query_name: rivastigmine
+      mechanism_class: cholinesterase inhibitor
+      candidate_reason: approved AD drug
+  - drug: &galantamine
+      query_name: galantamine
+      mechanism_class: cholinesterase inhibitor
+      candidate_reason: approved AD drug
+

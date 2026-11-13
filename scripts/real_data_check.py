@@ -43,11 +43,11 @@ import requests
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "python"))
 
-import benchmark_analysis as ba  # noqa: E402
-import data_collectors as dc  # noqa: E402
-from gene_ids import _load_cache as load_gene_cache  # noqa: E402
-from module_interface import ModuleConfig, RunResultsMessage, run_module  # noqa: E402
-from validation import Validator, judge  # noqa: E402
+import python.benchmark_analysis as ba                                              # noqa: E402
+import python.data_collectors as dc                                                 # noqa: E402
+from python.gene_ids import _load_cache as load_gene_cache                          # noqa: E402
+from python.module_interface import ModuleConfig, RunResultsMessage, run_module     # noqa: E402
+from python.validation import Validator, judge                                      # noqa: E402
 
 RAW_DIR = REPO_ROOT / "data" / "raw" / "extended"
 MANIFEST = REPO_ROOT / "data" / "frozen" / "manifest_extended.json"
@@ -102,9 +102,12 @@ MECHANISM = {name: cls for name, cls, _ in CANDIDATES}
 #  "plausible" = used together or tested together on purpose; "redundant" = same mechanism, used
 #  here as a negative control (the model should NOT favour them).
 KNOWN_COMBOS = [
-    (("donepezil", "memantine"), "plausible",
-     "FDA-approved fixed-dose combination (Namzaric, Dec 2014) for moderate-severe AD"),
-    (("rivastigmine", "memantine"), "plausible",
+    (
+        ("donepezil", "memantine"), 
+        "plausible",
+        "FDA-approved fixed-dose combination (Namzaric, Dec 2014) for moderate-severe AD"
+    ), (("rivastigmine", "memantine"), 
+        "plausible",
      "ChEI + memantine dual therapy; EFNS-ENS/EAN 2015 guideline, mixed evidence by outcome"),
     (("galantamine", "memantine"), "plausible",
      "ChEI + memantine dual therapy; EFNS-ENS/EAN 2015 guideline, mixed evidence by outcome"),
@@ -291,6 +294,7 @@ def trial_studies() -> list[dict]:
     """
     dest = RAW_DIR / "clinicaltrials_ad_studies.json"
     url = "https://clinicaltrials.gov/api/v2/studies"
+    
     if not dest.exists():
         studies, token = [], None
         while True:
@@ -316,9 +320,7 @@ def trial_studies() -> list[dict]:
             if not token:
                 break
         dest.write_text(json.dumps(studies, indent=1))
-    dc.record_source("clinicaltrials_ad_studies", dest, url=url,
-                     license_note="ClinicalTrials.gov, US government work, public domain.",
-                     manifest_path=MANIFEST)
+    dc.record_source("clinicaltrials_ad_studies", dest, url=url, license_note="ClinicalTrials.gov, US government work, public domain.", manifest_path=MANIFEST)
     return json.loads(dest.read_text())
 
 

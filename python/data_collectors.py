@@ -31,7 +31,7 @@ class Drug:
     name: str
     targets: list[str] = field(default_factory=list)  ##< Entrez gene IDs, in the interactome
     z_score: float | None = None                      ##< closeness to the AD module; None = not yet scored
-    source: str = ""                                   ##< citation, e.g. "cummings2025pipeline"
+    source: str = ""                                  ##< citation, e.g. "cummings2025pipeline"
 
 
 @dataclass
