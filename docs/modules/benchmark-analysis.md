@@ -49,12 +49,12 @@ One row per `(n, k, platform, chains, sweeps)`: number of runs, `success` (fract
 
 Time to reach `e_ref` with probability `target` (TTS, the standard annealing metric). For each sweep budget with per-run success probability `p` and median run time `t`:
 
-```
+```text
 runs_needed = ln(1 - target) / ln(1 - p)     (1 if p = 1, inf if p = 0)
 tts         = runs_needed * t
 ```
 
-Returns one row per `(n, k, platform)` — the sweep budget with the lowest TTS. Exact platforms have `p = 1`, so their TTS is one run.
+Returns one row per `(n, k, platform)`: the sweep budget with the lowest TTS. Exact platforms have `p = 1`, so their TTS is one run.
 
 Caveats: `p` is estimated from a finite number of seeds (20 by default in the script), so `p = 1` means "every run we tried hit", and the cheapest budget that reached 20/20 is picked, which slightly favours small budgets. The estimate is per run, not measured inside a chain. This is the per-budget TTS; the in-chain version (time until a chain first reaches the best energy) is still a TODO, because the native modules don't report when each chain first reaches it yet (`evaluation.tex`, "Three ways to measure speed").
 
